@@ -36,50 +36,106 @@ class ShortsRendererPlugin(RendererPlugin):
         duration_seconds: int | None = None,
         audio_path: Path | None = None,
         subtitle_path: Path | None = None,
+        scenes: list | None = None,
     ) -> RenderResult:
-        if not input_path.is_file():
-            raise AssetError(f"Input asset not found: {input_path}")
-
         dur = duration_seconds or self._cfg.duration_seconds
         w, h = self._cfg.width, self._cfg.height
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        vf_filters = [
-            f"scale={w}:{h}:force_original_aspect_ratio=decrease",
-            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black",
-        ]
+        fps = self._cfg.fps
+        if scenes and len(scenes) > 1:
+            for s in scenes:
+                p = getattr(s, "asset_path", s)
+                if not Path(p).is_file():
+                    raise AssetError(f"Scene asset not found: {p}")
 
-        if subtitle_path and subtitle_path.is_file():
-            # Format path for FFmpeg subtitles filter
-            sub_escaped = str(subtitle_path.resolve()).replace("\\", "/").replace(":", "\\:")
-            vf_filters.append(f"subtitles='{sub_escaped}'")
+            args: list[str] = []
+            filter_parts: list[str] = []
+            concat_inputs: list[str] = []
 
-        args = [
-            "-loop", "1",
-            "-i", str(input_path),
-        ]
+            for idx, sc in enumerate(scenes):
+                sc_path = getattr(sc, "asset_path", sc)
+                sc_dur = getattr(sc, "duration_seconds", float(dur) / len(scenes))
+                args.extend(["-framerate", str(fps), "-loop", "1", "-t", f"{sc_dur:.3f}", "-i", str(sc_path)])
+                filter_parts.append(
+                    f"[{idx}:v]scale={w}:{h}:force_original_aspect_ratio=decrease,"
+                    f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps={fps}[v{idx}]"
+                )
+                concat_inputs.append(f"[v{idx}]")
 
-        if audio_path and audio_path.is_file():
-            args.extend(["-i", str(audio_path)])
-            args.extend(["-c:a", "aac", "-b:a", "128k"])
+            filter_parts.append(f"{''.join(concat_inputs)}concat=n={len(scenes)}:v=1:a=0[vcat]")
+            last_v = "[vcat]"
+
+            if subtitle_path and subtitle_path.is_file():
+                sub_escaped = str(subtitle_path.resolve()).replace("\\", "/").replace(":", "\\:")
+                filter_parts.append(f"[vcat]subtitles='{sub_escaped}'[vout]")
+                last_v = "[vout]"
+
+            if audio_path and audio_path.is_file():
+                audio_idx = len(scenes)
+                args.extend(["-i", str(audio_path)])
+                args.extend(["-filter_complex", ";".join(filter_parts)])
+                args.extend(["-map", last_v, "-map", f"{audio_idx}:a", "-c:a", "aac", "-b:a", "128k"])
+            else:
+                args.extend(["-filter_complex", ";".join(filter_parts)])
+                args.extend(["-map", last_v, "-an"])
+
+            total_scene_dur = sum(getattr(sc, "duration_seconds", float(dur) / len(scenes)) for sc in scenes)
+            render_dur = max(float(dur), total_scene_dur)
+
+            args.extend([
+                "-t", f"{render_dur:.3f}",
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-pix_fmt", "yuv420p",
+                "-r", str(fps),
+                str(output_path),
+            ])
+            log.info("Rendering multi-scene Shorts %dx%d, %.3fs (%d scenes, audio=%s, subs=%s) → %s",
+                     w, h, render_dur, len(scenes), bool(audio_path), bool(subtitle_path), output_path)
+            run_ffmpeg(args, ffmpeg_path=self._ffmpeg_path)
+            final_duration = render_dur
         else:
-            args.append("-an")
+            if not input_path.is_file():
+                raise AssetError(f"Input asset not found: {input_path}")
 
-        args.extend([
-            "-t", str(dur),
-            "-vf", ",".join(vf_filters),
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-pix_fmt", "yuv420p",
-            "-r", str(self._cfg.fps),
-            "-shortest",
-            str(output_path),
-        ])
+            vf_filters = [
+                f"scale={w}:{h}:force_original_aspect_ratio=decrease",
+                f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black",
+            ]
 
-        log.info("Rendering Shorts %dx%d, %ds (audio=%s, subs=%s) → %s",
-                 w, h, dur, bool(audio_path), bool(subtitle_path), output_path)
-        run_ffmpeg(args, ffmpeg_path=self._ffmpeg_path)
+            if subtitle_path and subtitle_path.is_file():
+                sub_escaped = str(subtitle_path.resolve()).replace("\\", "/").replace(":", "\\:")
+                vf_filters.append(f"subtitles='{sub_escaped}'")
+
+            args = [
+                "-framerate", str(fps),
+                "-loop", "1",
+                "-i", str(input_path),
+            ]
+
+            if audio_path and audio_path.is_file():
+                args.extend(["-i", str(audio_path)])
+                args.extend(["-c:a", "aac", "-b:a", "128k"])
+            else:
+                args.append("-an")
+
+            render_dur = float(dur)
+            args.extend([
+                "-t", f"{render_dur:.3f}",
+                "-vf", ",".join(vf_filters),
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-pix_fmt", "yuv420p",
+                "-r", str(fps),
+                str(output_path),
+            ])
+
+            log.info("Rendering Shorts %dx%d, %.3fs (audio=%s, subs=%s) → %s",
+                     w, h, render_dur, bool(audio_path), bool(subtitle_path), output_path)
+            run_ffmpeg(args, ffmpeg_path=self._ffmpeg_path)
+            final_duration = render_dur
 
         # Verify output
         if not output_path.is_file() or output_path.stat().st_size == 0:
@@ -89,6 +145,6 @@ class ShortsRendererPlugin(RendererPlugin):
             output_path=output_path,
             width=w,
             height=h,
-            duration_seconds=float(dur),
+            duration_seconds=float(final_duration),
             format_name=self.format_name,
         )

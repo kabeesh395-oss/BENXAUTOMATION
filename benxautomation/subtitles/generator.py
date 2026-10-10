@@ -37,13 +37,21 @@ class SubtitleGenerator:
 
     @staticmethod
     def split_sentences(text: str) -> list[str]:
-        """Split text into sentences while keeping sensible chunks."""
-        # Split on sentence terminals or commas if too long
+        """Split text into sentences and phrases while keeping readable chunks."""
         raw = re.split(r'(?<=[.!?。！？])\s+', text.strip())
         sentences: list[str] = []
         for s in raw:
             s = s.strip()
-            if s:
+            if not s:
+                continue
+            # If a sentence is unusually long (> 80 chars), split on commas / semicolons / colons
+            if len(s) > 80:
+                sub_parts = re.split(r'(?<=[,;:，；：])\s+', s)
+                for sp in sub_parts:
+                    sp = sp.strip()
+                    if sp:
+                        sentences.append(sp)
+            else:
                 sentences.append(s)
         return sentences if sentences else [text.strip()]
 
@@ -81,3 +89,21 @@ class SubtitleGenerator:
         srt_content = "\n".join(seg.to_srt_block() for seg in segments)
         output_path.write_text(srt_content, encoding="utf-8")
         return output_path
+
+    @staticmethod
+    def validate_srt_duration(
+        output_path: Path,
+        narration_duration_seconds: float,
+        tolerance_seconds: float = 0.1,
+    ) -> bool:
+        """Validate that the last subtitle block does not exceed narration duration beyond tolerance."""
+        if not output_path.is_file():
+            return False
+        content = output_path.read_text(encoding="utf-8")
+        matches = re.findall(r"(\d{2}):(\d{2}):(\d{2}),(\d{3})", content)
+        if not matches:
+            return True
+        last_match = matches[-1]
+        h, m, s, ms = map(int, last_match)
+        last_secs = h * 3600 + m * 60 + s + ms / 1000.0
+        return last_secs <= (narration_duration_seconds + tolerance_seconds)

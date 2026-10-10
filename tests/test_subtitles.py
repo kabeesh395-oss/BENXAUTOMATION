@@ -35,3 +35,27 @@ class TestSubtitleGenerator:
         content = path.read_text(encoding="utf-8")
         assert "00:00:00,000 -->" in content
         assert "Welcome to the video." in content
+
+    def test_split_long_sentences_into_phrases(self):
+        long_sentence = (
+            "The ocean floor contains extreme underwater trenches with depths exceeding thirty thousand feet, "
+            "where temperatures hover near freezing and water pressure reaches extraordinary levels."
+        )
+        sentences = SubtitleGenerator.split_sentences(long_sentence)
+        assert len(sentences) >= 2
+
+    def test_unicode_subtitles(self, tmp_path: Path):
+        gen = SubtitleGenerator()
+        out_srt = tmp_path / "unicode.srt"
+        text = "Deep ocean 🌊 is full of mysteries! 深海探索: lumière et obscurité."
+        path = gen.generate_srt_from_text(text, total_duration_seconds=4.0, output_path=out_srt)
+        content = path.read_text(encoding="utf-8")
+        assert "🌊" in content
+        assert "深海探索" in content
+
+    def test_validate_srt_duration(self, tmp_path: Path):
+        gen = SubtitleGenerator()
+        out_srt = tmp_path / "timed.srt"
+        gen.generate_srt_from_text("Short text.", total_duration_seconds=5.0, output_path=out_srt)
+        assert gen.validate_srt_duration(out_srt, narration_duration_seconds=5.0, tolerance_seconds=0.1) is True
+        assert gen.validate_srt_duration(out_srt, narration_duration_seconds=2.0, tolerance_seconds=0.1) is False

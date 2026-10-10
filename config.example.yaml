@@ -26,3 +26,15 @@ assets:
   input_dir: "assets/"
   output_dir: "output/"
   license_manifest: "assets/license_manifest.yaml"
+
+script:
+  provider: "openai"              # "openai" or "fallback"
+  model: "gpt-4o-mini"
+  api_key_env: "OPENAI_API_KEY"
+  temperature: 0.7
+  timeout_seconds: 30
+
+audio:
+  music_enabled: true
+  music_volume: 0.15
+  # default_bgm_path: "assets/bgm/ambient_track.mp3"

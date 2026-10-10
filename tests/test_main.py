@@ -46,30 +46,47 @@ def test_main_passes_script_and_topic_to_pipeline(tmp_path: Path):
             shorts_result=None, longform_result=None, audio_path=None, subtitle_path=None
         )
 
-        # 1. Topic only
+        # 1. Topic only passes topic to pipeline
         rc = main(["--asset", str(dummy_asset), "--topic", "My Topic"])
         assert rc == 0
         call_kwargs = mock_pipeline.run.call_args[1]
-        assert call_kwargs["script_text"] == "My Topic"
+        assert call_kwargs["topic"] == "My Topic"
+        assert call_kwargs["script_text"] is None
         assert call_kwargs["enable_subtitles"] is True
 
-        # 2. Script provided (overrides topic)
+        # 2. Script provided (passes both to pipeline where script takes precedence)
         rc = main(["--asset", str(dummy_asset), "--topic", "My Topic", "--script", "Actual script"])
         assert rc == 0
         call_kwargs = mock_pipeline.run.call_args[1]
+        assert call_kwargs["topic"] == "My Topic"
         assert call_kwargs["script_text"] == "Actual script"
 
-        # 3. No subtitles flag
-        rc = main(["--asset", str(dummy_asset), "--script", "Test", "--no-subtitles", "--voice", "en-GB-SoniaNeural"])
+        # 3. No subtitles and no music flags
+        rc = main([
+            "--asset", str(dummy_asset),
+            "--script", "Test",
+            "--no-subtitles",
+            "--no-music",
+            "--voice", "en-GB-SoniaNeural",
+            "--provider", "fallback",
+        ])
         assert rc == 0
         call_kwargs = mock_pipeline.run.call_args[1]
         assert call_kwargs["enable_subtitles"] is False
+        assert call_kwargs["enable_music"] is False
         assert call_kwargs["voice_name"] == "en-GB-SoniaNeural"
+        assert call_kwargs["provider_name"] == "fallback"
 
 
-def test_main_missing_asset_returns_error(tmp_path: Path):
-    rc = main(["--asset", str(tmp_path / "nonexistent.jpg")])
-    assert rc == 2
+def test_main_missing_inputs_returns_error():
+    """Verify that calling main with no topic, script, or asset returns an error."""
+    rc = main([])
+    assert rc == 1
+
+
+def test_main_dry_run_success(tmp_path: Path):
+    rc = main(["--script", "Test script", "--dry-run"])
+    assert rc == 0
 
 
 @skip_no_ffmpeg

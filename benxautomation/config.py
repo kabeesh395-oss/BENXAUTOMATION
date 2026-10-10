@@ -53,6 +53,25 @@ class AssetsConfig(BaseModel):
     license_manifest: Optional[str] = None
 
 
+class ScriptConfig(BaseModel):
+    """Configuration for AI and fallback script generation."""
+    provider: str = "openai"  # "openai", "fallback"
+    model: str = "gpt-4o-mini"
+    api_key_env: str = "OPENAI_API_KEY"
+    base_url_env: str = "OPENAI_BASE_URL"
+    temperature: float = 0.7
+    timeout_seconds: int = 30
+    default_target_audience: str = "general audience"
+    default_tone: str = "engaging and informative"
+
+
+class AudioMixingConfig(BaseModel):
+    """Configuration for audio mixing and background music."""
+    music_enabled: bool = True
+    music_volume: float = 0.15
+    default_bgm_path: Optional[str] = None
+
+
 # ── Root config ─────────────────────────────────────────────────────
 
 class AppConfig(BaseModel):
@@ -62,6 +81,8 @@ class AppConfig(BaseModel):
     rendering: RenderingConfig = RenderingConfig()
     publishing: PublishingConfig = PublishingConfig()
     assets: AssetsConfig = AssetsConfig()
+    script: ScriptConfig = ScriptConfig()
+    audio: AudioMixingConfig = AudioMixingConfig()
 
     @field_validator("default_language")
     @classmethod

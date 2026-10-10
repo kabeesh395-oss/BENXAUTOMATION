@@ -31,3 +31,24 @@ class TestLongformRendererPlugin:
         assert result.format_name == "longform_16x9"
         assert out_path.is_file()
         assert out_path.stat().st_size > 0
+
+    @skip_no_ffmpeg
+    def test_render_longform_multi_scene(self, sample_image: Path, tmp_output: Path):
+        cfg = LongformConfig(width=1920, height=1080, duration_seconds=2, fps=30)
+        plugin = LongformRendererPlugin(cfg)
+        out_path = tmp_output / "longform_multi.mp4"
+
+        from benxautomation.visuals.models import ScenePlan
+        scene1 = ScenePlan(1, "S1", "N1", "V1", 1.0, sample_image)
+        scene2 = ScenePlan(2, "S2", "N2", "V2", 1.0, sample_image)
+
+        result = plugin.render(
+            sample_image,
+            out_path,
+            duration_seconds=2,
+            scenes=[scene1, scene2],
+        )
+
+        assert result.output_path == out_path
+        assert out_path.is_file()
+        assert out_path.stat().st_size > 0

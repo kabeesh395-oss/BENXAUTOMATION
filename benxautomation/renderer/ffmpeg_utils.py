@@ -136,3 +136,39 @@ def probe_file(path: Path, *, ffprobe_path: str = "ffprobe") -> dict:
         log.warning("ffprobe failed for %s: %s", path, result.stderr)
         return {}
     return json.loads(result.stdout)
+
+
+def mix_narration_with_bgm(
+    narration_path: Path,
+    bgm_path: Path,
+    output_path: Path,
+    *,
+    bgm_volume: float = 0.15,
+    ffmpeg_path: str = "ffmpeg",
+) -> Path:
+    """Mix narration voiceover with background music ducked to safe levels.
+
+    The final duration is matched strictly to the narration audio track duration.
+    """
+    if not narration_path.is_file():
+        raise RenderingError(f"Narration audio file not found: {narration_path}")
+    if not bgm_path.is_file():
+        raise RenderingError(f"Background music file not found: {bgm_path}")
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    filter_expr = f"[1:a]volume={bgm_volume:.3f}[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+    args = [
+        "-i", str(narration_path),
+        "-stream_loop", "-1",
+        "-i", str(bgm_path),
+        "-filter_complex", filter_expr,
+        "-map", "[aout]",
+        "-c:a", "libmp3lame",
+        "-b:a", "192k",
+        str(output_path),
+    ]
+    log.info("Mixing narration %s with BGM %s (vol=%.2f) -> %s", narration_path, bgm_path, bgm_volume, output_path)
+    run_ffmpeg(args, ffmpeg_path=ffmpeg_path)
+    if not output_path.is_file() or output_path.stat().st_size == 0:
+        raise RenderingError(f"Audio mixing produced empty output: {output_path}")
+    return output_path

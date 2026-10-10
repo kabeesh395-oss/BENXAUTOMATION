@@ -32,3 +32,11 @@ class PublishingDisabledError(BenxError):
 class DuplicateUploadError(PublishingDisabledError):
     """Raised when an identical video has already been published to YouTube."""
 
+
+class ScriptGenerationError(BenxError):
+    """Raised when AI or fallback script generation fails."""
+
+
+class ScenePlanningError(BenxError):
+    """Raised when visual scene planning or asset matching fails."""
+
