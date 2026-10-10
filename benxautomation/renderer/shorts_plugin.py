@@ -34,6 +34,8 @@ class ShortsRendererPlugin(RendererPlugin):
         output_path: Path,
         *,
         duration_seconds: int | None = None,
+        audio_path: Path | None = None,
+        subtitle_path: Path | None = None,
     ) -> RenderResult:
         if not input_path.is_file():
             raise AssetError(f"Input asset not found: {input_path}")
@@ -43,27 +45,40 @@ class ShortsRendererPlugin(RendererPlugin):
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Build FFmpeg command:
-        #   - loop the input image (or trim video) to `dur` seconds
-        #   - scale + pad to exact 1080×1920
-        #   - encode with libx264 baseline for broad compatibility
+        vf_filters = [
+            f"scale={w}:{h}:force_original_aspect_ratio=decrease",
+            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black",
+        ]
+
+        if subtitle_path and subtitle_path.is_file():
+            # Format path for FFmpeg subtitles filter
+            sub_escaped = str(subtitle_path.resolve()).replace("\\", "/").replace(":", "\\:")
+            vf_filters.append(f"subtitles='{sub_escaped}'")
+
         args = [
             "-loop", "1",
             "-i", str(input_path),
+        ]
+
+        if audio_path and audio_path.is_file():
+            args.extend(["-i", str(audio_path)])
+            args.extend(["-c:a", "aac", "-b:a", "128k"])
+        else:
+            args.append("-an")
+
+        args.extend([
             "-t", str(dur),
-            "-vf", (
-                f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
-                f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black"
-            ),
+            "-vf", ",".join(vf_filters),
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-pix_fmt", "yuv420p",
             "-r", str(self._cfg.fps),
-            "-an",  # no audio for MVP
+            "-shortest",
             str(output_path),
-        ]
+        ])
 
-        log.info("Rendering Shorts %dx%d, %ds → %s", w, h, dur, output_path)
+        log.info("Rendering Shorts %dx%d, %ds (audio=%s, subs=%s) → %s",
+                 w, h, dur, bool(audio_path), bool(subtitle_path), output_path)
         run_ffmpeg(args, ffmpeg_path=self._ffmpeg_path)
 
         # Verify output

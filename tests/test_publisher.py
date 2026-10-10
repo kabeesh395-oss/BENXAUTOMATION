@@ -16,7 +16,7 @@ class TestYouTubePublisher:
         test_file.write_bytes(b"dummy")
 
         with pytest.raises(PublishingDisabledError, match="disabled in config"):
-            pub.upload(test_file)
+            pub.upload(test_file, title="Test")
 
     def test_enabled_without_oauth_still_raises(self, tmp_path: Path):
         cfg = PublishingConfig(enabled=True)
@@ -24,5 +24,5 @@ class TestYouTubePublisher:
         test_file = tmp_path / "vid.mp4"
         test_file.write_bytes(b"dummy")
 
-        with pytest.raises(PublishingDisabledError, match="OAuth is not yet implemented"):
-            pub.upload(test_file)
+        with pytest.raises(PublishingDisabledError, match="not configured"):
+            pub.upload(test_file, title="Test")

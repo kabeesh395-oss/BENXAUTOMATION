@@ -5,12 +5,16 @@ Modular AI-powered YouTube automation for Shorts, long-form videos, multilingual
 
 ## Overview
 
-BENXAUTOMATION is a modular, extensible framework for automated YouTube video creation. It is designed to safely handle the lifecycle of video generation:
-- Configuration validation (Pydantic v2)
-- Asset verification and license tracking
-- Pluggable video rendering (Shorts 9:16 and Long-form 16:9 via FFmpeg)
-- Metadata & language registry (ready to expand to 20+ languages)
-- Protected YouTube publishing interface (disabled until OAuth is configured)
+BENXAUTOMATION is a modular, extensible framework for automated YouTube video creation. It handles the complete lifecycle of production-grade video generation:
+- **Configuration Validation** (Pydantic v2 schemas)
+- **Asset License Manifest Verification** (`cc0`, `mit`, `apache-2.0`, `cc-by-4.0`, etc.)
+- **AI Video Generation via MoneyPrinterTurbo Adapter** (Supports CLI subprocess invocation and FastAPI REST client)
+- **Neural Text-To-Speech (TTS)** (`edge-tts` engine generating real MP3 speech)
+- **Timed Subtitle Generation** (SRT generation and automatic FFmpeg subtitle burning)
+- **Pluggable Video Rendering** (Shorts 9:16 and Long-form 16:9 via FFmpeg with audio and subtitles)
+- **Media Validation** (`MediaValidator` inspecting streams, duration, dimensions, codecs, and playability)
+- **Persistent Job Queue & Worker Pool** (SQLite-backed persistent queue with restart recovery, retries, bounded worker pool, disk storage safeguards, and emergency stop)
+- **Official YouTube OAuth2 Publisher** (Full OAuth2 authorization flow, token exchange, refresh, channel verification, and restricted visibility enforcement)
 
 ---
 
@@ -22,44 +26,40 @@ BENXAUTOMATION/
 │   └── workflows/
 │       └── ci.yml                    # Automated pytest execution on GitHub Actions
 ├── assets/
-│   └── .gitkeep                      # Assets directory (images, audio, video)
+│   ├── sample_card.png           # Licensed base asset
+│   └── license_manifest.yaml     # Asset license declaration
 ├── benxautomation/
-│   ├── __init__.py                   # Package version & metadata
-│   ├── config.py                     # Pydantic configuration schemas & validation
-│   ├── logger.py                     # Structured JSON logging
-│   ├── errors.py                     # Exception hierarchy
-│   ├── asset_manifest.py             # Asset license manifest parsing & checks
-│   ├── pipeline.py                   # High-level pipeline coordinator
-│   ├── main.py                       # CLI entrypoint
+│   ├── config.py                 # Pydantic configuration schemas & validation
+│   ├── logger.py                 # Structured JSON logging
+│   ├── errors.py                 # Custom exception hierarchy
+│   ├── asset_manifest.py         # License manifest parsing & verification
+│   ├── pipeline.py               # End-to-end rendering coordinator
+│   ├── main.py                   # CLI entrypoint
+│   ├── adapters/
+│   │   └── moneyprinter.py       # MoneyPrinterTurbo adapter (CLI + REST API)
+│   ├── tts/
+│   │   └── engine.py             # Neural Edge-TTS engine (audio synthesis)
+│   ├── subtitles/
+│   │   └── generator.py          # Timed subtitle (.srt) generator & parser
+│   ├── queue/
+│   │   ├── job_queue.py          # SQLite persistent queue with restart recovery
+│   │   ├── monitor.py            # Storage safeguard & emergency stop monitor
+│   │   └── worker.py             # Bounded parallel worker pool
 │   ├── renderer/
-│   │   ├── __init__.py
-│   │   ├── base.py                   # Abstract RendererPlugin & RenderResult
-│   │   ├── ffmpeg_utils.py           # Subprocess wrapper & ffprobe inspection
-│   │   ├── shorts_plugin.py          # 9:16 portrait video rendering plugin
-│   │   └── longform_plugin.py        # 16:9 landscape video rendering plugin
+│   │   ├── base.py               # Abstract RendererPlugin & RenderResult
+│   │   ├── ffmpeg_utils.py       # Subprocess wrapper & path resolution
+│   │   ├── shorts_plugin.py      # 9:16 portrait video rendering plugin
+│   │   ├── longform_plugin.py    # 16:9 landscape video rendering plugin
+│   │   └── media_validator.py    # Duration, dimensions, codecs & playability validator
 │   ├── publisher/
-│   │   ├── __init__.py
-│   │   └── youtube.py                # YouTube publisher stub (OAuth guard-rail)
+│   │   └── youtube.py            # YouTube OAuth2 publisher & safety guard
 │   └── i18n/
-│       ├── __init__.py
-│       └── registry.py               # Multilingual registry (designed for 20+ languages)
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                   # Pytest fixtures & FFmpeg detection
-│   ├── test_config.py                # Config validation tests
-│   ├── test_asset_manifest.py        # License manifest validation tests
-│   ├── test_renderer_base.py         # Plugin interface contract tests
-│   ├── test_ffmpeg_utils.py          # FFmpeg and probe tests
-│   ├── test_shorts_plugin.py         # Shorts rendering tests
-│   ├── test_longform_plugin.py       # Long-form rendering tests
-│   ├── test_publisher.py             # YouTube publisher safety guard tests
-│   ├── test_i18n.py                  # Language registry tests
-│   ├── test_logger.py                # JSON logger tests
-│   └── test_pipeline.py              # Pipeline integration tests
-├── config.example.yaml               # Example configuration without secrets
-├── pyproject.toml                     # Build setup, dependencies, pytest configuration
-├── requirements.txt                   # Production and dev dependencies
-└── README.md                          # Project documentation
+│       └── registry.py           # Multilingual registry (20+ language support)
+├── tests/                        # Comprehensive test suite (72 passed unit & integration tests)
+├── config.example.yaml           # Example configuration without secrets
+├── pyproject.toml                 # Build setup, dependencies, pytest configuration
+├── requirements.txt               # Production and dev dependencies
+└── README.md                      # Project documentation
 ```
 
 ---
