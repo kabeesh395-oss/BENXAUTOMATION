@@ -41,6 +41,9 @@ class PublishingConfig(BaseModel):
     """YouTube publishing settings — disabled by default."""
     enabled: bool = False
     youtube_client_secret_path: Optional[str] = None
+    enforce_private: bool = True  # Strict safeguard: only 'private' uploads allowed during acceptance testing
+    upload_ledger_path: Optional[str] = None
+
 
 
 class AssetsConfig(BaseModel):

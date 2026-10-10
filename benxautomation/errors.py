@@ -26,4 +26,9 @@ class ManifestError(BenxError):
 
 
 class PublishingDisabledError(BenxError):
-    """Raised when publishing is attempted without OAuth configuration."""
+    """Raised when publishing is attempted without OAuth configuration or when safeguards block it."""
+
+
+class DuplicateUploadError(PublishingDisabledError):
+    """Raised when an identical video has already been published to YouTube."""
+
