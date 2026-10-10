@@ -27,6 +27,10 @@ class QueueError(BenxError):
     """Raised on queue operation errors."""
 
 
+class DuplicateJobError(QueueError):
+    """Raised when an identical job is already pending or processing in the queue."""
+
+
 @dataclass
 class Job:
     """A unit of work in the queue."""
@@ -38,6 +42,7 @@ class Job:
     max_retries: int
     created_at: str
     updated_at: str
+    deduplication_key: Optional[str] = None
     error_message: Optional[str] = None
     result: Optional[dict[str, Any]] = None
 
@@ -67,6 +72,7 @@ class JobQueue:
                     status TEXT NOT NULL,
                     retry_count INTEGER NOT NULL DEFAULT 0,
                     max_retries INTEGER NOT NULL DEFAULT 3,
+                    deduplication_key TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     error_message TEXT,
@@ -74,6 +80,15 @@ class JobQueue:
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON jobs(status)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_dedup ON jobs(deduplication_key, status)")
+
+            # Ensure deduplication_key exists in existing schemas
+            cursor = conn.execute("PRAGMA table_info(jobs)")
+            cols = [col["name"] for col in cursor.fetchall()]
+            if "deduplication_key" not in cols:
+                conn.execute("ALTER TABLE jobs ADD COLUMN deduplication_key TEXT")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_dedup ON jobs(deduplication_key, status)")
+
             conn.commit()
 
     def recover_interrupted_jobs(self) -> int:
@@ -100,18 +115,40 @@ class JobQueue:
         payload: dict[str, Any],
         *,
         max_retries: int = 3,
+        deduplication_key: Optional[str] = None,
+        prevent_duplicates: bool = True,
     ) -> Job:
-        """Add a new job to the queue."""
+        """Add a new job to the queue, preventing duplicates if key is given."""
         now = datetime.now(timezone.utc).isoformat()
         payload_json = json.dumps(payload, default=str)
 
         with self._lock, self._get_connection() as conn:
+            if deduplication_key and prevent_duplicates:
+                cursor = conn.execute(
+                    """
+                    SELECT id FROM jobs
+                    WHERE deduplication_key = ? AND status IN ('PENDING', 'PROCESSING')
+                    LIMIT 1
+                    """,
+                    (deduplication_key,),
+                )
+                existing = cursor.fetchone()
+                if existing:
+                    log.warning(
+                        "Duplicate job rejected: key '%s' matches active job %d",
+                        deduplication_key,
+                        existing["id"],
+                    )
+                    raise DuplicateJobError(
+                        f"Job with deduplication key '{deduplication_key}' is already active (id={existing['id']})"
+                    )
+
             cursor = conn.execute(
                 """
-                INSERT INTO jobs (job_type, payload, status, retry_count, max_retries, created_at, updated_at)
-                VALUES (?, ?, 'PENDING', 0, ?, ?, ?)
+                INSERT INTO jobs (job_type, payload, status, retry_count, max_retries, deduplication_key, created_at, updated_at)
+                VALUES (?, ?, 'PENDING', 0, ?, ?, ?, ?)
                 """,
-                (job_type, payload_json, max_retries, now, now),
+                (job_type, payload_json, max_retries, deduplication_key, now, now),
             )
             conn.commit()
             job_id = cursor.lastrowid
@@ -230,6 +267,7 @@ class JobQueue:
             max_retries=row["max_retries"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            deduplication_key=row["deduplication_key"] if "deduplication_key" in row.keys() else None,
             error_message=row["error_message"],
             result=json.loads(row["result"]) if row["result"] else None,
         )
