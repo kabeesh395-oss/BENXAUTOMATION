@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -13,9 +14,43 @@ from benxautomation.logger import get_logger
 log = get_logger(__name__)
 
 
+def _sync_windows_path() -> None:
+    """Ensure process PATH includes system & user PATH from Windows registry if on Windows."""
+    if os.name != "nt":
+        return
+    try:
+        import winreg
+        paths = []
+        for hkey, subkey in [
+            (winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"),
+            (winreg.HKEY_CURRENT_USER, r"Environment"),
+        ]:
+            try:
+                with winreg.OpenKey(hkey, subkey) as k:
+                    val, _ = winreg.QueryValueEx(k, "Path")
+                    paths.extend(val.split(";"))
+            except OSError:
+                continue
+
+        current = os.environ.get("PATH", "").split(";")
+        updated = False
+        for p in paths:
+            p_clean = p.strip()
+            if p_clean and p_clean not in current:
+                current.append(p_clean)
+                updated = True
+        if updated:
+            os.environ["PATH"] = ";".join(current)
+    except Exception:
+        pass
+
+
 def find_ffmpeg(configured_path: str = "ffmpeg") -> str:
     """Resolve *configured_path* to an absolute path, or raise."""
     resolved = shutil.which(configured_path)
+    if resolved is None:
+        _sync_windows_path()
+        resolved = shutil.which(configured_path)
     if resolved is None:
         raise FFmpegNotFoundError(
             f"FFmpeg not found at '{configured_path}'. "
@@ -28,9 +63,12 @@ def find_ffprobe(configured_path: str = "ffprobe") -> str:
     """Resolve *configured_path* to an absolute path, or raise."""
     resolved = shutil.which(configured_path)
     if resolved is None:
+        _sync_windows_path()
+        resolved = shutil.which(configured_path)
+    if resolved is None:
         raise FFmpegNotFoundError(
             f"FFprobe not found at '{configured_path}'. "
-            "Install FFmpeg or set rendering.ffprobe_path in config."
+            "Install FFprobe or set rendering.ffprobe_path in config."
         )
     return resolved
 
