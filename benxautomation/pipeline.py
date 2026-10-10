@@ -6,6 +6,7 @@ subtitle generation, plugin rendering, and media validation.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -101,14 +102,14 @@ class VideoPipeline:
             )
             audio_path = audio_res.file_path
             result.audio_path = audio_path
-            calc_duration = max(calc_duration or 0, int(audio_res.duration_seconds + 1))
+            calc_duration = max(calc_duration or 0, int(math.ceil(audio_res.duration_seconds)))
 
             # 2. Generate subtitles aligned to voiceover
             if enable_subtitles:
                 sub_out = output_dir / f"{asset_path.stem}_subtitles.srt"
                 self.subtitle_generator.generate_srt_from_text(
                     script_text,
-                    total_duration_seconds=float(calc_duration),
+                    total_duration_seconds=float(audio_res.duration_seconds),
                     output_path=sub_out,
                 )
                 subtitle_path = sub_out

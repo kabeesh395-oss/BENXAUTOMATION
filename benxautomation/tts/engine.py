@@ -71,13 +71,25 @@ class TTSEngine:
         if not output_path.is_file() or output_path.stat().st_size == 0:
             raise TTSError(f"TTS produced empty output file at {output_path}")
 
-        # Estimate duration from file size / MP3 bitrate (or fallback estimate)
-        # edge-tts default is ~64kbps CBR/VBR (8000 bytes/sec)
-        est_duration = max(1.0, round(output_path.stat().st_size / 8000.0, 2))
+        # Measure exact duration via ffprobe when available
+        actual_duration = 0.0
+        try:
+            from benxautomation.renderer.ffmpeg_utils import probe_file
+
+            info = probe_file(output_path)
+            fmt = info.get("format", {})
+            if "duration" in fmt:
+                actual_duration = round(float(fmt["duration"]), 3)
+        except Exception as exc:
+            log.debug("ffprobe probe failed for %s: %s", output_path, exc)
+
+        if actual_duration <= 0:
+            # Fallback estimation if ffprobe is unavailable (~48-64 kbps)
+            actual_duration = max(1.0, round(output_path.stat().st_size / 6000.0, 2))
 
         return AudioResult(
             file_path=output_path,
-            duration_seconds=est_duration,
+            duration_seconds=actual_duration,
             voice_name=voice,
             script=text,
         )

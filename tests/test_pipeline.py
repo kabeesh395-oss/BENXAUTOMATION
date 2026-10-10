@@ -6,7 +6,8 @@ import pytest
 from benxautomation.config import AppConfig
 from benxautomation.errors import AssetError, ManifestError
 from benxautomation.pipeline import VideoPipeline
-from tests.conftest import skip_no_ffmpeg
+from benxautomation.renderer.ffmpeg_utils import probe_file
+from tests.conftest import skip_no_ffmpeg, skip_no_ffprobe
 
 
 class TestVideoPipeline:
@@ -52,3 +53,50 @@ class TestVideoPipeline:
         assert res.longform_result is not None
         assert res.longform_result.output_path.is_file()
         assert res.longform_result.output_path.stat().st_size > 0
+
+    @skip_no_ffmpeg
+    @skip_no_ffprobe
+    def test_pipeline_narration_and_subtitle_duration_alignment(
+        self, sample_image: Path, tmp_output: Path
+    ):
+        """Verify video duration encloses narration and subtitles align to audio."""
+        cfg = AppConfig()
+        pipeline = VideoPipeline(cfg)
+
+        manifest = sample_image.parent / "license_manifest.yaml"
+        manifest.write_text(
+            f"assets:\n  - file: {sample_image.name}\n    license: cc0\n",
+            encoding="utf-8",
+        )
+
+        script = "First sentence of test narration. Second sentence of test narration."
+        res = pipeline.run(
+            asset_path=sample_image,
+            output_dir=tmp_output,
+            script_text=script,
+            manifest_path=manifest,
+            enable_subtitles=True,
+        )
+
+        assert res.audio_path is not None
+        assert res.audio_path.is_file()
+        audio_dur = float(probe_file(res.audio_path)["format"]["duration"])
+        assert audio_dur > 0
+
+        assert res.subtitle_path is not None
+        assert res.subtitle_path.is_file()
+        srt_text = res.subtitle_path.read_text(encoding="utf-8")
+        # Subtitles must contain the text
+        assert "First sentence" in srt_text
+        assert "Second sentence" in srt_text
+
+        # Video outputs must cover the complete audio narration
+        assert res.shorts_result is not None
+        assert res.shorts_metadata is not None
+        assert res.shorts_metadata.has_audio is True
+        assert res.shorts_metadata.duration_seconds >= audio_dur - 0.1
+
+        assert res.longform_result is not None
+        assert res.longform_metadata is not None
+        assert res.longform_metadata.has_audio is True
+        assert res.longform_metadata.duration_seconds >= audio_dur - 0.1

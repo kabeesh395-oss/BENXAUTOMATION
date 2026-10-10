@@ -52,6 +52,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to asset license manifest YAML.",
     )
     parser.add_argument(
+        "--topic",
+        "-t",
+        type=str,
+        default=None,
+        help="Video topic or subject text (used directly as narration text when --script is not provided).",
+    )
+    parser.add_argument(
+        "--script",
+        "-s",
+        type=str,
+        default=None,
+        help="Custom narration script text.",
+    )
+    parser.add_argument(
+        "--voice",
+        type=str,
+        default=None,
+        help="Voice name for TTS synthesis (default: en-US-AriaNeural).",
+    )
+    parser.add_argument(
+        "--no-subtitles",
+        action="store_true",
+        help="Disable automatic subtitle generation.",
+    )
+    parser.add_argument(
         "--shorts-only",
         action="store_true",
         help="Render only Shorts (9:16).",
@@ -77,16 +102,24 @@ def main(argv: list[str] | None = None) -> int:
     pipeline = VideoPipeline(config)
     render_shorts = not args.longform_only
     render_longform = not args.shorts_only
+    script_text = args.script or args.topic
 
     try:
         res = pipeline.run(
             asset_path=args.asset,
             output_dir=args.output_dir,
             duration_seconds=args.duration,
+            script_text=script_text,
+            voice_name=args.voice,
+            enable_subtitles=not args.no_subtitles,
             render_shorts=render_shorts,
             render_longform=render_longform,
             manifest_path=args.manifest,
         )
+        if res.audio_path:
+            log.info("Generated Narration: %s", res.audio_path)
+        if res.subtitle_path:
+            log.info("Generated Subtitles: %s", res.subtitle_path)
         if res.shorts_result:
             log.info("Rendered Shorts: %s", res.shorts_result.output_path)
         if res.longform_result:
