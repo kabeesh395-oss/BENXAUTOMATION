@@ -98,3 +98,62 @@ class TestYouTubePublisherSafetyGuards:
 
         res = pub.upload(test_vid, title="Private Test Video", privacy_status="private")
         assert res["id"] == "yt_video_999"
+
+    @patch("requests.get")
+    def test_verify_video_success(self, mock_get):
+        cfg = PublishingConfig(enabled=True)
+        mock_mgr = MagicMock(spec=YouTubeOAuthManager)
+        mock_mgr.get_valid_access_token.return_value = "ya29.valid"
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "items": [{
+                    "id": "abc123xyz",
+                    "snippet": {"title": "Acceptance Test Video"},
+                    "status": {"privacyStatus": "private", "uploadStatus": "uploaded"},
+                }]
+            },
+        )
+        pub = YouTubePublisher(cfg, oauth_manager=mock_mgr)
+        info = pub.verify_video("abc123xyz")
+        assert info["video_id"] == "abc123xyz"
+        assert info["privacy_status"] == "private"
+        assert info["url"] == "https://youtu.be/abc123xyz"
+
+    @patch("requests.post")
+    @patch("requests.put")
+    @patch("requests.get")
+    def test_upload_private_acceptance_test(self, mock_get, mock_put, mock_post, tmp_path: Path):
+        cfg = PublishingConfig(enabled=True)
+        mock_mgr = MagicMock(spec=YouTubeOAuthManager)
+        mock_mgr.verify_channel.return_value = ChannelInfo("UC123", "VerifiedChannel")
+        mock_mgr.get_valid_access_token.return_value = "ya29.valid"
+
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            headers={"Location": "https://upload.youtube.com/resume/456"},
+        )
+        mock_put.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {"id": "private_test_id"},
+        )
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "items": [{
+                    "id": "private_test_id",
+                    "snippet": {"title": "BENX Acceptance Test"},
+                    "status": {"privacyStatus": "private", "uploadStatus": "uploaded"},
+                }]
+            },
+        )
+
+        pub = YouTubePublisher(cfg, oauth_manager=mock_mgr)
+        test_vid = tmp_path / "private_test.mp4"
+        test_vid.write_bytes(b"data")
+
+        res = pub.upload_private_acceptance_test(test_vid, title="BENX Acceptance Test")
+        assert res["video_id"] == "private_test_id"
+        assert res["privacy_status"] == "private"
+        assert res["url"] == "https://youtu.be/private_test_id"
+

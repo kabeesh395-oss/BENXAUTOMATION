@@ -24,10 +24,19 @@ Thumbs.db
 
 # Secrets — NEVER commit these
 .env
+*.env
 *.key
 *.pem
 client_secret*.json
+client_secret.json
+*credentials*.json
+credentials.json
 oauth_token*.json
+youtube_tokens.json
+*token*.json
+tokens/
+secrets/
+.secrets/
 
 # Test / build artifacts
 *.mp4
