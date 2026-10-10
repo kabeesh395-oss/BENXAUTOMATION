@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "benxautomation"
+version = "0.1.0"
+description = "Modular AI-powered YouTube video automation"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "BENX Team"}]
+
+dependencies = [
+    "pydantic>=2.0,<3",
+    "pyyaml>=6.0,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0,<9",
+    "pytest-cov>=4.0,<6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "ffmpeg: requires FFmpeg to be installed (deselect with '-m \"not ffmpeg\"')",
+    "ffprobe: requires FFprobe to be installed (deselect with '-m \"not ffprobe\"')",
+]
+addopts = "-v --tb=short"
+
+[tool.setuptools.packages.find]
+include = ["benxautomation*"]

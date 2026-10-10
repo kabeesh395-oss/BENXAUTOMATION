@@ -1,0 +1,5 @@
+assets:
+  - file: "sample_card.bmp"
+    license: "cc0"
+    attribution: "Generated test card asset for BENXAUTOMATION"
+    source_url: "local://assets/sample_card.bmp"

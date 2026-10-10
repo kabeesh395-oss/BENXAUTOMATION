@@ -1,0 +1,28 @@
+# BENXAUTOMATION — example configuration
+# Copy to config.yaml and edit. Never commit config.yaml with real secrets.
+
+project_name: "MyChannel"
+default_language: "en"
+
+rendering:
+  ffmpeg_path: "ffmpeg"          # or full path: /usr/bin/ffmpeg
+  ffprobe_path: "ffprobe"
+  shorts:
+    width: 1080
+    height: 1920
+    duration_seconds: 30
+    fps: 30
+  longform:
+    width: 1920
+    height: 1080
+    duration_seconds: 120
+    fps: 30
+
+publishing:
+  enabled: false                  # MUST stay false until OAuth is configured
+  # youtube_client_secret_path: "client_secret.json"   # never commit this file
+
+assets:
+  input_dir: "assets/"
+  output_dir: "output/"
+  license_manifest: "assets/license_manifest.yaml"

@@ -1,0 +1,7 @@
+# Core
+pydantic>=2.0,<3
+pyyaml>=6.0,<7
+
+# Dev / test
+pytest>=7.0,<9
+pytest-cov>=4.0,<6
