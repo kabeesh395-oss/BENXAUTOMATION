@@ -233,6 +233,9 @@ class OriginalAssetGenerator:
                         "license": "original",
                         "attribution": f"Creator-owned original graphic for {s.title} (BENXAUTOMATION)",
                         "source_url": f"local://assets/{s.filename}",
+                        "asset_origin": "in_house_code_generated",
+                        "commercial_terms_verified": True,
+                        "terms_reference": "Pillow HPND open-source software license; all output graphical artifacts created in-house",
                     }
                 )
                 files_in_manifest.add(s.filename)

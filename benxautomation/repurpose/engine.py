@@ -130,8 +130,9 @@ class RepurposingEngine:
             if not evidence and is_creator_owned:
                 evidence = "Self-authorized creator owned content"
 
-            confirmed = self.config.confirm_rights or (inp.source_type == "local_file" and is_creator_owned)
-            disclaimer = self.config.accept_disclaimer or (inp.source_type == "local_file" and is_creator_owned)
+            # Explicit user confirmation is strictly required; never auto-confirm based solely on local file presence
+            confirmed = bool(self.config.confirm_rights)
+            disclaimer = bool(self.config.accept_disclaimer)
 
             decl = RightsDeclaration(
                 ownership_type=self.config.ownership_type,
@@ -150,8 +151,10 @@ class RepurposingEngine:
                     "Explicit source-rights confirmation is required before processing third-party video footage. "
                     "You must confirm ownership/licensing (--confirm-rights) and accept the legal disclaimer (--accept-disclaimer)."
                 )
+            self.rights_reviewer.assert_publishing_allowed(decl)
+        elif decl.user_confirmed_rights:
+            self.rights_reviewer.assert_publishing_allowed(decl)
 
-        self.rights_reviewer.assert_publishing_allowed(decl)
         return decl
 
     def detect_highlights(
@@ -460,6 +463,15 @@ class RepurposingEngine:
             )
             for c in approved_clips:
                 c.youtube_upload_status = "OAUTH_UNCONFIGURED"
+            manifest.save(manifest_path)
+            return
+
+        if not (rights_decl.user_confirmed_rights and rights_decl.disclaimer_accepted):
+            log.warning(
+                "Source footage rights unconfirmed. Private upload blocked safely; rendered video files preserved on disk."
+            )
+            for c in approved_clips:
+                c.youtube_upload_status = "RIGHTS_UNCONFIRMED_BLOCKED"
             manifest.save(manifest_path)
             return
 

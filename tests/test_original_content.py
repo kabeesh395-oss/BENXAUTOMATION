@@ -113,3 +113,29 @@ def test_main_cli_routing_for_original_workflow(monkeypatch):
     args = parser.parse_args(["--workflow", "original", "--upload-private"])
     assert args.workflow == "original"
     assert args.upload_private is True
+
+
+def test_engine_rights_verification_blocks_unpermitted_assets(tmp_path: Path):
+    """Verify that unverified asset commercial terms strictly block rights approval and upload."""
+    from benxautomation.visuals.models import ScenePlan
+
+    manifest_p = tmp_path / "license_manifest.yaml"
+    manifest_p.write_text("assets:\n  - file: unverified.png\n    license: original\n    commercial_terms_verified: false\n", encoding="utf-8")
+    engine = OriginalContentEngine(manifest_path=manifest_p)
+
+    scripts = OriginalScriptAuthor.create_scripts_for_topic("ai_future")
+    short_script = next(s for s in scripts if s.format == "shorts")
+
+    unverified_scenes = [
+        ScenePlan(
+            scene_index=1,
+            title="Scene 1",
+            narration="Test narration",
+            visual_description="Test desc",
+            duration_seconds=5.0,
+            asset_path=Path("unverified.png"),
+        )
+    ]
+    passed, reason = engine.verify_video_rights(short_script, unverified_scenes)
+    assert passed is False
+    assert "unverified commercial terms" in reason

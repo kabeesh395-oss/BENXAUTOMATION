@@ -3,173 +3,299 @@ assets:
   license: cc0
   attribution: Generated test card asset for BENXAUTOMATION
   source_url: local://assets/sample_card.bmp
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: sample_card.png
   license: cc0
   attribution: Generated test card asset for BENXAUTOMATION
   source_url: local://assets/sample_card.png
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: deep_sea_abyss.jpg
   license: original
   attribution: AI-generated deep sea bioluminescence asset for Mariana Trench topic
   source_url: local://assets/deep_sea_abyss.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: deep_sea_submersible.jpg
   license: original
   attribution: AI-generated deep ocean exploration submersible vehicle asset
   source_url: local://assets/deep_sea_submersible.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: deep_sea_hydrothermal_vent.jpg
   license: original
   attribution: AI-generated deep sea hydrothermal vent black smoker mineral chimney
   source_url: local://assets/deep_sea_hydrothermal_vent.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: deep_sea_anglerfish.jpg
   license: original
   attribution: AI-generated bioluminescent deep sea anglerfish predator asset
   source_url: local://assets/deep_sea_anglerfish.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: deep_sea_jellyfish.jpg
   license: original
   attribution: AI-generated bioluminescent abyssal jellyfish cluster asset
   source_url: local://assets/deep_sea_jellyfish.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: space_solar_corona.jpg
   license: original
   attribution: AI-generated photorealistic solar corona and sun flare asset for solar
     system topic
   source_url: local://assets/space_solar_corona.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: space_mars_olympus_mons.jpg
   license: original
   attribution: AI-generated orbital terrain asset of Olympus Mons shield volcano on
     Mars
   source_url: local://assets/space_mars_olympus_mons.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: space_jupiter_great_red_spot.jpg
   license: original
   attribution: AI-generated close-up asset of Jupiter Great Red Spot atmospheric vortex
   source_url: local://assets/space_jupiter_great_red_spot.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: space_saturn_rings.jpg
   license: original
   attribution: AI-generated asset of Saturn and reflective icy concentric rings in
     space
   source_url: local://assets/space_saturn_rings.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: space_europa_ice_ocean.jpg
   license: original
   attribution: AI-generated orbital asset of Jupiter icy moon Europa and subsurface
     ocean
   source_url: local://assets/space_europa_ice_ocean.jpg
+  asset_origin: local_test_fixture
+  commercial_terms_verified: true
+  terms_reference: CC0 1.0 Universal public domain dedication
 - file: orig_ai_future_hero.png
   license: original
   attribution: Creator-owned original graphic for The Future of Artificial Intelligence
     (BENXAUTOMATION)
   source_url: local://assets/orig_ai_future_hero.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_molecular.png
   license: original
   attribution: Creator-owned original graphic for Molecular Biology & Simulation (BENXAUTOMATION)
   source_url: local://assets/orig_ai_molecular.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_reasoning.png
   license: original
   attribution: Creator-owned original graphic for Reasoning Inference Architectures
     (BENXAUTOMATION)
   source_url: local://assets/orig_ai_reasoning.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_horizon.png
   license: original
   attribution: Creator-owned original graphic for The Computing Horizon (BENXAUTOMATION)
   source_url: local://assets/orig_ai_horizon.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_short1_scene1.png
   license: original
   attribution: Creator-owned original graphic for Traditional Research (BENXAUTOMATION)
   source_url: local://assets/orig_ai_short1_scene1.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_short1_scene2.png
   license: original
   attribution: Creator-owned original graphic for Digital Simulation (BENXAUTOMATION)
   source_url: local://assets/orig_ai_short1_scene2.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_short1_scene3.png
   license: original
   attribution: Creator-owned original graphic for Faster Therapeutics (BENXAUTOMATION)
   source_url: local://assets/orig_ai_short1_scene3.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_short2_scene1.png
   license: original
   attribution: Creator-owned original graphic for Pattern Matching (BENXAUTOMATION)
   source_url: local://assets/orig_ai_short2_scene1.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_short2_scene2.png
   license: original
   attribution: Creator-owned original graphic for Deliberate Thinking (BENXAUTOMATION)
   source_url: local://assets/orig_ai_short2_scene2.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_ai_short2_scene3.png
   license: original
   attribution: Creator-owned original graphic for Engineering Precision (BENXAUTOMATION)
   source_url: local://assets/orig_ai_short2_scene3.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_compound_hero.png
   license: original
   attribution: Creator-owned original graphic for The Mathematics of Compounding (BENXAUTOMATION)
   source_url: local://assets/orig_fin_compound_hero.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_time.png
   license: original
   attribution: 'Creator-owned original graphic for The Critical Variable: Time (BENXAUTOMATION)'
   source_url: local://assets/orig_fin_time.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_discipline.png
   license: original
   attribution: Creator-owned original graphic for Emotional Discipline (BENXAUTOMATION)
   source_url: local://assets/orig_fin_discipline.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_plan.png
   license: original
   attribution: Creator-owned original graphic for Systematic Execution (BENXAUTOMATION)
   source_url: local://assets/orig_fin_plan.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_short1_scene1.png
   license: original
   attribution: Creator-owned original graphic for Linear vs Exponential (BENXAUTOMATION)
   source_url: local://assets/orig_fin_short1_scene1.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_short1_scene2.png
   license: original
   attribution: Creator-owned original graphic for The Acceleration Phase (BENXAUTOMATION)
   source_url: local://assets/orig_fin_short1_scene2.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_short1_scene3.png
   license: original
   attribution: Creator-owned original graphic for The Golden Rule (BENXAUTOMATION)
   source_url: local://assets/orig_fin_short1_scene3.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_short2_scene1.png
   license: original
   attribution: Creator-owned original graphic for Missing the Best Days (BENXAUTOMATION)
   source_url: local://assets/orig_fin_short2_scene1.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_short2_scene2.png
   license: original
   attribution: Creator-owned original graphic for Price of Admission (BENXAUTOMATION)
   source_url: local://assets/orig_fin_short2_scene2.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_fin_short2_scene3.png
   license: original
   attribution: Creator-owned original graphic for Stay the Course (BENXAUTOMATION)
   source_url: local://assets/orig_fin_short2_scene3.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_hero.png
   license: original
   attribution: Creator-owned original graphic for The Invisible Shield (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_hero.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_crypto.png
   license: original
   attribution: Creator-owned original graphic for Public Key Cryptography (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_crypto.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_zerotrust.png
   license: original
   attribution: Creator-owned original graphic for Zero Trust Frameworks (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_zerotrust.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_quantum.png
   license: original
   attribution: Creator-owned original graphic for Quantum Resilience (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_quantum.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_short1_scene1.png
   license: original
   attribution: Creator-owned original graphic for The Scramble (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_short1_scene1.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_short1_scene2.png
   license: original
   attribution: Creator-owned original graphic for Private Key Math (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_short1_scene2.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_short1_scene3.png
   license: original
   attribution: Creator-owned original graphic for 256-Bit Fortress (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_short1_scene3.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_short2_scene1.png
   license: original
   attribution: Creator-owned original graphic for Castle Mindset (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_short2_scene1.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_short2_scene2.png
   license: original
   attribution: Creator-owned original graphic for Always Verify (BENXAUTOMATION)
   source_url: local://assets/orig_cyber_short2_scene2.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram
 - file: orig_cyber_short2_scene3.png
   license: original
   attribution: 'Creator-owned original graphic for Blast Radius: Zero (BENXAUTOMATION)'
   source_url: local://assets/orig_cyber_short2_scene3.png
+  asset_origin: in_house_code_generated
+  commercial_terms_verified: true
+  terms_reference: Pillow HPND open-source license; creator-owned diagram

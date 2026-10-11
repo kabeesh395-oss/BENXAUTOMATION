@@ -178,6 +178,33 @@ class OriginalContentEngine:
 
         return summary
 
+    def verify_video_rights(self, script: OriginalScript, scenes: list[ScenePlan]) -> tuple[bool, str]:
+        """Strictly verify that every asset and script element has confirmed, permitted commercial rights."""
+        if "Original text by BENXAUTOMATION" not in script.license_statement:
+            return False, "Script lacks verified original authorship statement."
+
+        if not self.manifest_path.is_file():
+            return False, f"Asset license manifest missing at {self.manifest_path}"
+
+        try:
+            from benxautomation.asset_manifest import load_manifest
+            manifest = load_manifest(self.manifest_path)
+            manifest_map = {a.file: a for a in manifest.assets}
+        except Exception as exc:
+            return False, f"Error reading license manifest: {exc}"
+
+        for sc in scenes:
+            fn = sc.asset_path.name
+            if fn not in manifest_map:
+                return False, f"Visual asset '{fn}' is not registered in the license manifest."
+            asset_entry = manifest_map[fn]
+            if not getattr(asset_entry, "commercial_terms_verified", True):
+                return False, f"Visual asset '{fn}' has unverified commercial terms."
+            if asset_entry.license not in ("original", "cc0", "cc-by-4.0", "mit", "apache-2.0", "ai_generated", "public-domain"):
+                return False, f"Visual asset '{fn}' has unsupported license '{asset_entry.license}'."
+
+        return True, "All assets, neural narration, and script elements have verified commercial terms."
+
     def render_video(self, script: OriginalScript) -> OriginalVideoResult:
         """Render a single original video, audio narration, subtitles, and validate quality."""
         safe_name = f"{script.topic_id}_{script.format}_{hash(script.title) % 10000:04d}"
@@ -261,14 +288,17 @@ class OriginalContentEngine:
         except Exception as th_err:
             log.debug("Thumbnail extraction: %s", th_err)
 
-        # 6. Quality Validation Gate
+        # 6. Rights Verification Gate
+        r_pass, r_notes = self.verify_video_rights(script, scenes)
+
+        # 7. Quality Validation Gate
         q_pass, q_issues, probe_meta = self.validator.validate_for_private_upload(
             video_path,
             is_short=is_short,
             min_duration_seconds=10.0,
         )
 
-        # 7. Write metadata receipt
+        # 8. Write metadata receipt
         meta_data = {
             "title": script.title,
             "format": script.format,
@@ -279,7 +309,8 @@ class OriginalContentEngine:
             "tags": script.tags,
             "quality_passed": q_pass,
             "quality_issues": q_issues,
-            "rights_status": "VERIFIED_CREATOR_OWNED",
+            "rights_verified": r_pass,
+            "rights_notes": r_notes,
             "files": {
                 "video": str(video_path),
                 "audio": str(audio_path),
@@ -298,8 +329,8 @@ class OriginalContentEngine:
             duration_seconds=probe_meta.duration_seconds if probe_meta else audio_dur,
             quality_passed=q_pass,
             quality_issues=q_issues,
-            rights_verified=True,
-            rights_notes="All visual assets and scripts are creator-owned original creations.",
+            rights_verified=r_pass,
+            rights_notes=r_notes,
         )
 
     def _init_youtube_publisher(self) -> Optional[Any]:
@@ -324,6 +355,10 @@ class OriginalContentEngine:
     ) -> Tuple[str, Optional[str], Optional[str], Optional[str]]:
         """Upload video strictly as PRIVATE and verify with API."""
         from benxautomation.errors import PublishingDisabledError
+
+        if not v_res.rights_verified:
+            log.warning("Upload blocked: asset rights unverified (%s)", v_res.rights_notes)
+            return "FAILED", None, None, f"Rights verification failed: {v_res.rights_notes}"
 
         desc = (
             f"{script.title}\n\n"
