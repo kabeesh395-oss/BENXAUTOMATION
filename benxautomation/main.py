@@ -111,9 +111,20 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--workflow",
-        choices=["topic", "repurpose", "original"],
+        choices=["topic", "repurpose", "original", "animated"],
         default=None,
-        help="Pipeline workflow: 'topic' (AI topic-to-video), 'repurpose' (long-form to Shorts), or 'original' (copyright-safe educational videos).",
+        help="Pipeline workflow: 'topic' (AI topic-to-video), 'repurpose' (long-form to Shorts), 'original' (copyright-safe educational videos), or 'animated' (Blender/Godot cartoon animation).",
+    )
+    parser.add_argument(
+        "--sample-only",
+        action="store_true",
+        help="Generate and inspect only a single sample animated video.",
+    )
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=25,
+        help="Number of animated videos to generate (default: 25).",
     )
     parser.add_argument(
         "--mode",
@@ -370,6 +381,37 @@ def main(argv: list[str] | None = None) -> int:
             render_longform=render_longform,
         )
         print_orig_summary(summary)
+        return 0
+
+    # Animated cartoon workflow routing (Blender + Godot + FFmpeg)
+    if getattr(args, "workflow", None) == "animated":
+        log.info("Animated cartoon workflow requested via CLI...")
+        from benxautomation.animation.pipeline import AnimationPipeline
+
+        anim_out_dir = (
+            args.output_dir
+            if args.output_dir and args.output_dir != Path("output")
+            else Path("output/animated_shorts")
+        )
+        pipeline = AnimationPipeline(output_dir=anim_out_dir)
+        results = pipeline.run_batch(
+            count=args.count or 25,
+            upload_private=bool(args.upload_private),
+            sample_only=bool(args.sample_only),
+        )
+
+        print("\n" + "=" * 60)
+        print("BENXAUTOMATION — Animated Shorts Execution Summary")
+        print("=" * 60)
+        for r in results:
+            stat = "PASS" if r.quality_passed and r.motion_verified else "FAIL"
+            print(f"[{stat}] {r.title} ({r.duration_seconds:.1f}s, Motion Score: {r.motion_score:.1f}%)")
+            print(f"       Video: {r.video_path}")
+            if r.youtube_video_id:
+                print(f"       YouTube (PRIVATE): {r.youtube_url} ({r.youtube_status})")
+            elif r.youtube_status != "PENDING":
+                print(f"       YouTube Status: {r.youtube_status}")
+        print("=" * 60 + "\n")
         return 0
 
     # Repurposing workflow routing (if --workflow repurpose or --source or --apply-manifest is provided)
