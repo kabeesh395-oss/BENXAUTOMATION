@@ -24,7 +24,7 @@ name: Podcast & Shorts Daily Automation
       clips_target:
         description: 'Number of highlight clips to generate (1 to 4)'
         required: true
-        default: '2'
+        default: '1'
 
 concurrency:
   group: podcast-shorts-pipeline
