@@ -1,0 +1,109 @@
+name: Long-Form Landscape Weekly Automation
+
+'on':
+  # 2 Long-form videos Weekly: Sunday & Wednesday 06:30 PM IST (13:00 UTC)
+  schedule:
+    - cron: '0 13 * * 0,3'
+
+  # Manual on-demand execution
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Video Topic for AI Script & Visual Generation'
+        required: true
+        default: '5 Surprising Mysteries of the Deep Sea'
+      duration_seconds:
+        description: 'Duration in seconds (e.g. 60 to 180)'
+        required: true
+        default: '60'
+      mode:
+        description: 'Execution Mode'
+        required: true
+        type: choice
+        options:
+          - 'dry_run'          # Safe test without publishing
+          - 'render_only'      # Render video and save artifacts
+          - 'upload_private'   # Render and upload strictly as PRIVATE
+        default: 'dry_run'
+
+concurrency:
+  group: longform-video-pipeline
+  cancel-in-progress: false
+
+jobs:
+  longform-video:
+    name: Generate Long-Form 16:9 Video
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install System Dependencies (FFmpeg)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-freefont-ttf
+          ffmpeg -version
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Restore Persistent State (Upload Ledger)
+        uses: actions/cache@v4
+        id: ledger-cache
+        with:
+          path: output/upload_ledger.sqlite
+          key: longform-state-${{ github.run_id }}
+          restore-keys: |
+            longform-state-
+
+      - name: Hydrate OAuth Secrets
+        env:
+          YOUTUBE_CLIENT_SECRET_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}
+          YOUTUBE_TOKENS_JSON: ${{ secrets.YOUTUBE_TOKENS_JSON }}
+        run: |
+          python -c "from benxautomation.cloud_runner import hydrate_oauth_secrets; ready, msgs = hydrate_oauth_secrets(); print(ready, msgs)"
+
+      - name: Run Long-Form Video Pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          EXTRA_FLAGS=""
+          TOPIC="${{ github.event.inputs.topic || '5 Surprising Mysteries of the Deep Sea' }}"
+          DUR="${{ github.event.inputs.duration_seconds || '60' }}"
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.mode }}" = "dry_run" ]; then
+              EXTRA_FLAGS="--dry-run"
+            fi
+          fi
+
+          echo "Generating longform video: Topic='$TOPIC', Duration=$DUR"
+          python -m benxautomation.main --topic "$TOPIC" --duration "$DUR" --format longform $EXTRA_FLAGS
+
+      - name: Upload Generated Long-Form Video Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: longform-video-output-${{ github.run_number }}
+          path: |
+            output/*_longform.mp4
+            output/quality_report.json
+            output/*.srt
+            output/scene_plan.json
+          retention-days: 14
+
+      - name: Post-Run Failure Notification
+        if: failure()
+        run: |
+          echo "::error::Long-Form pipeline failed. Check step logs for details."

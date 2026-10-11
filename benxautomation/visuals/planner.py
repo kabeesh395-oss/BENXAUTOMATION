@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
+import re
 from typing import List, Optional
 
 from benxautomation.asset_manifest import LicenseManifest
 from benxautomation.errors import ScenePlanningError
 from benxautomation.logger import get_logger
-from benxautomation.script.models import ScriptResult
+from benxautomation.script.models import ScriptResult, ScriptScene
 from benxautomation.visuals.models import ScenePlan, VisualPlan
 
 log = get_logger(__name__)
@@ -68,6 +70,109 @@ class ScenePlanner:
 
         return available
 
+    @staticmethod
+    def _is_test_placeholder(asset: dict) -> bool:
+        """Return True if the asset is a test fixture or placeholder card."""
+        name = asset.get("file", "").lower()
+        attr = (asset.get("attribution") or "").lower()
+        return "sample_card" in name or "test card" in attr or name.startswith("sample_")
+
+    @staticmethod
+    def _score_asset_for_scene(
+        scene: ScriptScene,
+        asset: dict,
+        topic: str = "",
+        stop_words: set[str] | None = None,
+    ) -> int:
+        """Compute keyword relevance score between a scene and an asset candidate."""
+        if stop_words is None:
+            stop_words = {
+                "test", "sample", "card", "asset", "generated", "file", "local",
+                "benxautomation", "for", "the", "and", "with", "this", "that", "from",
+                "into", "over", "under", "about", "scene", "fact", "number", "point",
+            }
+
+        name_stem = asset["path"].stem.lower().replace("_", " ")
+        attr = (asset.get("attribution") or "").lower()
+        asset_words = (set(re.findall(r"\b\w{4,}\b", f"{name_stem} {attr}"))) - stop_words
+
+        if not asset_words:
+            return 0
+
+        title_words = set(re.findall(r"\b\w{4,}\b", scene.title.lower())) - stop_words
+        desc_words = set(re.findall(r"\b\w{4,}\b", scene.visual_description.lower())) - stop_words
+        narr_words = set(re.findall(r"\b\w{4,}\b", scene.narration.lower())) - stop_words
+        topic_words = set(re.findall(r"\b\w{4,}\b", topic.lower())) - stop_words
+
+        score = 0
+        for w in asset_words:
+            if w in title_words:
+                score += 8  # Direct match with scene title/heading
+            if w in desc_words:
+                score += 6  # Match with intended visual description
+            if w in narr_words:
+                score += 4  # Match with spoken narration keywords
+            if w in topic_words:
+                score += 1  # General topic alignment
+
+        return score
+
+    def _assign_assets_globally(
+        self,
+        scenes: list[ScriptScene],
+        available_assets: list[dict],
+        topic: str = "",
+    ) -> list[dict]:
+        """Globally optimize asset allocation across all scenes to prevent greedy misallocation."""
+        if not available_assets:
+            raise ScenePlanningError("No valid assets available for scene planning.")
+
+        # Exclude test placeholders if real production media is available
+        production_assets = [a for a in available_assets if not self._is_test_placeholder(a)]
+        pool = production_assets if production_assets else available_assets
+
+        stop_words = {
+            "test", "sample", "card", "asset", "generated", "file", "local",
+            "benxautomation", "for", "the", "and", "with", "this", "that", "from",
+            "into", "over", "under", "about", "scene", "fact", "number", "point",
+        }
+
+        # Calculate score matrix: scores[scene_idx][asset_idx]
+        scored_pairs: list[tuple[int, int, int]] = []  # (score, scene_idx, asset_idx)
+        for s_idx, scene in enumerate(scenes):
+            for a_idx, asset in enumerate(pool):
+                score = self._score_asset_for_scene(scene, asset, topic=topic, stop_words=stop_words)
+                scored_pairs.append((score, s_idx, a_idx))
+
+        # Sort candidate assignments by descending score
+        scored_pairs.sort(key=lambda x: x[0], reverse=True)
+
+        assigned_assets: list[Optional[dict]] = [None] * len(scenes)
+        used_asset_indices: set[int] = set()
+
+        # Phase 1: Assign pairs with positive score greedily by highest score
+        for score, s_idx, a_idx in scored_pairs:
+            if score <= 0:
+                break
+            if assigned_assets[s_idx] is None and a_idx not in used_asset_indices:
+                assigned_assets[s_idx] = pool[a_idx]
+                used_asset_indices.add(a_idx)
+
+        # Phase 2: For any remaining unassigned scenes, allocate from remaining unused pool assets
+        remaining_asset_indices = [i for i in range(len(pool)) if i not in used_asset_indices]
+        for s_idx in range(len(scenes)):
+            if assigned_assets[s_idx] is None:
+                if remaining_asset_indices:
+                    # Pick remaining unused asset that has highest topic score, or cyclically
+                    best_rem_idx = remaining_asset_indices.pop(0)
+                    assigned_assets[s_idx] = pool[best_rem_idx]
+                    used_asset_indices.add(best_rem_idx)
+                else:
+                    # Pool exhausted; cycle through pool to avoid visual monotony
+                    assigned_assets[s_idx] = pool[s_idx % len(pool)]
+
+        return [a for a in assigned_assets if a is not None]
+
     def _match_asset_for_scene(
         self,
         scene_title: str,
@@ -75,36 +180,17 @@ class ScenePlanner:
         scene_narration: str,
         available_assets: list[dict],
         scene_idx: int,
+        topic: str = "",
+        used_asset_paths: set[Path] | None = None,
     ) -> dict:
-        """Find the most relevant asset, or cycle through available assets."""
-        if not available_assets:
-            raise ScenePlanningError("No valid assets available for scene planning.")
-
-        text_to_match = f"{scene_title} {scene_desc} {scene_narration}".lower()
-
-        # Score assets by keyword overlap
-        best_match = None
-        best_score = -1
-
-        for asset in available_assets:
-            score = 0
-            name_stem = asset["path"].stem.lower().replace("_", " ")
-            attr = asset.get("attribution", "").lower()
-
-            words = set(name_stem.split() + attr.split())
-            for w in words:
-                if len(w) > 3 and w in text_to_match:
-                    score += 2
-
-            if score > best_score:
-                best_score = score
-                best_match = asset
-
-        # If keyword scoring didn't find a strong match, cycle through assets to avoid visual monotony
-        if best_score <= 0:
-            best_match = available_assets[(scene_idx - 1) % len(available_assets)]
-
-        return best_match or available_assets[0]
+        """Find the most relevant asset, prioritizing production media and scene diversity."""
+        dummy_scene = ScriptScene(
+            scene_index=scene_idx,
+            title=scene_title,
+            narration=scene_narration,
+            visual_description=scene_desc,
+        )
+        return self._assign_assets_globally([dummy_scene], available_assets, topic=topic)[0]
 
     def plan_visuals(
         self,
@@ -151,6 +237,13 @@ class ScenePlanner:
         total_chars = sum(len(s.narration) for s in scenes) or 1
         scene_plans: list[ScenePlan] = []
         accumulated_frames = 0
+        MOTION_EFFECTS = ["zoom_in", "pan_left", "zoom_out", "pan_right"]
+
+        matched_assets = (
+            [available[0]] * len(scenes)
+            if not is_multi
+            else self._assign_assets_globally(scenes, available, topic=script_result.topic)
+        )
 
         for idx, scene in enumerate(scenes, start=1):
             if idx == len(scenes):
@@ -161,18 +254,7 @@ class ScenePlanner:
                 accumulated_frames += scene_frames
 
             scene_dur = round(scene_frames / fps, 3)
-
-            matched = (
-                available[0]
-                if not is_multi
-                else self._match_asset_for_scene(
-                    scene.title,
-                    scene.visual_description,
-                    scene.narration,
-                    available,
-                    idx,
-                )
-            )
+            matched = matched_assets[idx - 1]
 
             # Verify asset file exists, is non-empty, and is readable
             asset_file = matched["path"]
@@ -183,6 +265,8 @@ class ScenePlanner:
                     _ = f.read(64)
             except Exception as exc:
                 raise ScenePlanningError(f"Selected scene asset is unreadable: {asset_file} ({exc})")
+
+            motion_effect = MOTION_EFFECTS[(idx - 1) % len(MOTION_EFFECTS)]
 
             scene_plans.append(
                 ScenePlan(
@@ -196,21 +280,29 @@ class ScenePlanner:
                     license=matched.get("license", "unspecified"),
                     attribution=matched.get("attribution", ""),
                     source_url=matched.get("source_url", ""),
+                    motion_effect=motion_effect,
                 )
             )
 
         total_dur = sum(s.duration_seconds for s in scene_plans)
+        distinct_assets = {s.asset_path for s in scene_plans}
+        has_repeated = len(scene_plans) > len(distinct_assets)
+
         log.info(
-            "Planned %d scenes (total %.3fs, target %.3fs, multi_scene=%s, assets_used=%d)",
+            "Planned %d scenes (total %.3fs, target %.3fs, multi_scene=%s, distinct_assets=%d, repeated=%s)",
             len(scene_plans),
             total_dur,
             target_video_duration,
             is_multi,
-            len({s.asset_path for s in scene_plans}),
+            len(distinct_assets),
+            has_repeated,
         )
 
         return VisualPlan(
             scenes=scene_plans,
             total_duration_seconds=total_dur,
             is_multi_scene=is_multi,
+            distinct_assets_count=len(distinct_assets),
+            has_repeated_assets=has_repeated,
+            animation_type="2d_motion",
         )

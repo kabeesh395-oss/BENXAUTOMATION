@@ -44,8 +44,8 @@ class SubtitleGenerator:
             s = s.strip()
             if not s:
                 continue
-            # If a sentence is unusually long (> 80 chars), split on commas / semicolons / colons
-            if len(s) > 80:
+            # If a sentence is unusually long (> 55 chars), split on commas / semicolons / colons
+            if len(s) > 55:
                 sub_parts = re.split(r'(?<=[,;:，；：])\s+', s)
                 for sp in sub_parts:
                     sp = sp.strip()

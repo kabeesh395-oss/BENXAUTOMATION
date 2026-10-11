@@ -141,7 +141,8 @@ def print_summary_report(result: PipelineResult) -> None:
     if result.scene_plan_path:
         print(f"Scene Plan:       {result.scene_plan_path}")
         if result.visual_plan:
-            print(f"Scenes Planned:   {len(result.visual_plan.scenes)} scenes")
+            print(f"Scenes Planned:   {len(result.visual_plan.scenes)} scenes ({result.visual_plan.distinct_assets_count} distinct assets)")
+            print(f"Visual Motion:    2D Dynamic Motion ({', '.join(s.motion_effect for s in result.visual_plan.scenes)})")
 
     if result.narration_path:
         print(f"Narration Audio:  {result.narration_path}")
@@ -166,6 +167,41 @@ def print_summary_report(result: PipelineResult) -> None:
 
     if result.quality_report_path:
         print(f"Quality Report:   {result.quality_report_path}")
+
+    q = getattr(result, "quality_report", None)
+    if not q and result.quality_report_path and result.quality_report_path.is_file():
+        try:
+            q = json.loads(result.quality_report_path.read_text(encoding="utf-8"))
+        except Exception:
+            q = None
+
+    if q:
+        render_ok = q.get("render_success", False)
+        content_ok = q.get("content_quality_passed", False)
+        issues = q.get("quality_issues", []) or q.get("content_issues", []) or q.get("render_issues", [])
+
+        print("-" * 60)
+        print(f"Render Validation:  {'PASS' if render_ok else 'FAIL'}")
+        if content_ok:
+            print("Content Quality:    PASS")
+        else:
+            print("Content Quality:    UNVERIFIED DRAFT / OUTLINE (Verification required)")
+        if issues:
+            print("Quality Notes:")
+            for issue in issues:
+                print(f"  - {issue}")
+    elif hasattr(result, "render_success"):
+        print("-" * 60)
+        print(f"Render Validation:  {'PASS' if result.render_success else 'FAIL'}")
+        if getattr(result, "content_quality_passed", False):
+            print("Content Quality:    PASS")
+        else:
+            print("Content Quality:    UNVERIFIED DRAFT / OUTLINE (Verification required)")
+        issues = getattr(result, "quality_issues", [])
+        if issues:
+            print("Quality Notes:")
+            for issue in issues:
+                print(f"  - {issue}")
 
     print("=" * 60 + "\n")
 

@@ -49,3 +49,5 @@ htmlcov/
 .coverage
 .pytest_cache/
 output/
+.backups/
+*.sqlite

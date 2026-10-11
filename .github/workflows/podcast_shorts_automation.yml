@@ -1,0 +1,119 @@
+name: Podcast & Shorts Daily Automation
+
+'on':
+  # 3 Shorts Daily: 09:30 AM IST (04:00 UTC), 02:30 PM IST (09:00 UTC), 07:30 PM IST (14:00 UTC)
+  schedule:
+    - cron: '0 4,9,14 * * *'
+
+  # Manual on-demand execution with safety controls
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: 'Authorized YouTube URL or leave empty for permitted test sample'
+        required: false
+        default: ''
+      mode:
+        description: 'Execution Mode'
+        required: true
+        type: choice
+        options:
+          - 'dry_run'          # Safe test without uploading (Default)
+          - 'render_only'      # Render video, subtitles, metadata as artifacts
+          - 'upload_private'   # Render and upload strictly as PRIVATE for review
+        default: 'dry_run'
+      clips_target:
+        description: 'Number of highlight clips to generate (1 to 4)'
+        required: true
+        default: '2'
+
+concurrency:
+  group: podcast-shorts-pipeline
+  cancel-in-progress: false  # Never drop or interleave runs; queue safely
+
+jobs:
+  podcast-to-shorts:
+    name: Process Podcast to Shorts
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install System Dependencies (FFmpeg)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-freefont-ttf
+          ffmpeg -version
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install yt-dlp
+          pip install -e .
+
+      - name: Restore Persistent State (Upload Ledger & Job Queue)
+        uses: actions/cache@v4
+        id: state-cache
+        with:
+          path: |
+            output/upload_ledger.sqlite
+            output/podcast_batch_jobs.db
+          key: podcast-state-${{ github.run_id }}
+          restore-keys: |
+            podcast-state-
+
+      - name: Run Cloud Pipeline (Podcast-to-Shorts)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YOUTUBE_CLIENT_SECRET_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}
+          YOUTUBE_TOKENS_JSON: ${{ secrets.YOUTUBE_TOKENS_JSON }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Determine flags based on trigger type
+          EXTRA_FLAGS=""
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.mode }}" = "dry_run" ]; then
+              EXTRA_FLAGS="--dry-run"
+            elif [ "${{ github.event.inputs.mode }}" = "upload_private" ]; then
+              EXTRA_FLAGS="--upload-private"
+            fi
+            
+            if [ -n "${{ github.event.inputs.source_url }}" ]; then
+              EXTRA_FLAGS="$EXTRA_FLAGS --source '${{ github.event.inputs.source_url }}'"
+            fi
+            
+            EXTRA_FLAGS="$EXTRA_FLAGS --clips-target ${{ github.event.inputs.clips_target }}"
+          else
+            # Scheduled Cron runs in safe dry-run mode unless production secrets exist
+            EXTRA_FLAGS="--dry-run --clips-target 3"
+          fi
+
+          echo "Running cloud automation with flags: $EXTRA_FLAGS"
+          python -m benxautomation.cloud_runner $EXTRA_FLAGS
+
+      - name: Upload Generated Video Assets & Metadata
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: podcast-shorts-output-${{ github.run_number }}
+          path: |
+            output/podcast_shorts/
+            output/*_metadata.json
+            output/*.srt
+            output/*.vtt
+            output/*.jpg
+          retention-days: 14
+
+      - name: Post-Run Failure Notification
+        if: failure()
+        run: |
+          echo "::error::Podcast-to-Shorts pipeline failed. Check step logs for details."

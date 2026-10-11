@@ -1,0 +1,65 @@
+# BENXAUTOMATION — Production Capacity & Scheduling Configuration
+# Tailored for target: 3 Shorts/day (~60-90/month) and 2 Long-form/week (~8-10/month)
+# Operating Principle: Review-before-publish mode with strict private testing visibility.
+
+project_name: "BENX_07 Automation Studio"
+default_language: "en"
+
+# Production Schedule & Capacity Targets (Reference Guide & Limits)
+schedule:
+  mode: "review_before_publish"   # Never automatically publishes unreviewed drafts
+  target_shorts_per_day: 3        # Target: 3 high-retention shorts/day
+  target_longform_per_week: 2     # Target: 2 deep-dive landscape episodes/week
+  monthly_shorts_target: 90
+  monthly_longform_target: 10
+  quota_budget:
+    daily_quota_limit: 10000      # YouTube Data API v3 daily quota limit
+    cost_per_upload: 1600         # YouTube API upload unit cost
+    daily_shorts_upload_cost: 4800 # 3 uploads * 1600 = 4800 units (safe headroom)
+    reserved_headroom: 5200       # Reserved for thumbnail, status checks, and channel queries
+
+rendering:
+  ffmpeg_path: "ffmpeg"
+  ffprobe_path: "ffprobe"
+  shorts:
+    width: 1080
+    height: 1920
+    duration_seconds: 30
+    fps: 30
+  longform:
+    width: 1920
+    height: 1080
+    duration_seconds: 120
+    fps: 30
+
+publishing:
+  enabled: true
+  enforce_private: true           # Strict test safety: all uploads default to PRIVATE
+  default_privacy: "private"
+  require_explicit_approval: true
+  upload_ledger_path: "output/upload_ledger.sqlite"
+
+podcast_shorts:
+  output_dir: "output/podcast_shorts"
+  cache_dir: "output/podcast_cache"
+  reframing_mode: "blur_pad"       # "blur_pad" or "center_crop"
+  min_clip_duration: 15.0
+  max_clip_duration: 60.0
+  subtitle_language: "en"          # "en", "ta", "ta-en"
+  max_batch_clips_per_source: 4
+
+assets:
+  input_dir: "assets/"
+  output_dir: "output/"
+  license_manifest: "assets/license_manifest.yaml"
+
+script:
+  provider: "gemini"               # Auto-detects Gemini with fallback
+  model: "gemini-3.5-flash"
+  api_key_env: "GEMINI_API_KEY"
+  temperature: 0.4
+  timeout_seconds: 30
+
+audio:
+  music_enabled: true
+  music_volume: 0.15

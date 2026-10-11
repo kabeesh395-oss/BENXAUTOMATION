@@ -8,7 +8,7 @@ from benxautomation.config import ShortsConfig
 from benxautomation.errors import AssetError, RenderingError
 from benxautomation.logger import get_logger
 from benxautomation.renderer.base import RendererPlugin, RenderResult
-from benxautomation.renderer.ffmpeg_utils import run_ffmpeg
+from benxautomation.renderer.ffmpeg_utils import build_scene_motion_filter, run_ffmpeg
 
 log = get_logger(__name__)
 
@@ -55,12 +55,29 @@ class ShortsRendererPlugin(RendererPlugin):
             concat_inputs: list[str] = []
 
             for idx, sc in enumerate(scenes):
-                sc_path = getattr(sc, "asset_path", sc)
+                sc_path = Path(getattr(sc, "asset_path", sc))
                 sc_dur = getattr(sc, "duration_seconds", float(dur) / len(scenes))
-                args.extend(["-framerate", str(fps), "-loop", "1", "-t", f"{sc_dur:.3f}", "-i", str(sc_path)])
+                sc_motion = getattr(sc, "motion_effect", "zoom_in")
+                sc_title = getattr(sc, "title", "")
+                is_video = sc_path.suffix.lower() in {".mp4", ".mov", ".avi", ".webm", ".mkv"}
+
+                if is_video:
+                    args.extend(["-t", f"{sc_dur:.3f}", "-i", str(sc_path)])
+                else:
+                    args.extend(["-i", str(sc_path)])
+
                 filter_parts.append(
-                    f"[{idx}:v]scale={w}:{h}:force_original_aspect_ratio=decrease,"
-                    f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps={fps}[v{idx}]"
+                    build_scene_motion_filter(
+                        idx,
+                        w,
+                        h,
+                        fps,
+                        sc_dur,
+                        motion_effect=sc_motion,
+                        title=sc_title,
+                        is_video=is_video,
+                        is_portrait=True,
+                    )
                 )
                 concat_inputs.append(f"[v{idx}]")
 
@@ -69,7 +86,11 @@ class ShortsRendererPlugin(RendererPlugin):
 
             if subtitle_path and subtitle_path.is_file():
                 sub_escaped = str(subtitle_path.resolve()).replace("\\", "/").replace(":", "\\:")
-                filter_parts.append(f"[vcat]subtitles='{sub_escaped}'[vout]")
+                sub_style = (
+                    "force_style='FontSize=16,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
+                    "BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=45'"
+                )
+                filter_parts.append(f"[vcat]subtitles='{sub_escaped}':{sub_style}[vout]")
                 last_v = "[vout]"
 
             if audio_path and audio_path.is_file():
@@ -87,9 +108,12 @@ class ShortsRendererPlugin(RendererPlugin):
             args.extend([
                 "-t", f"{render_dur:.3f}",
                 "-c:v", "libx264",
-                "-preset", "ultrafast",
+                "-preset", "veryfast",
+                "-crf", "22",
                 "-pix_fmt", "yuv420p",
                 "-r", str(fps),
+                "-g", str(fps * 2),
+                "-movflags", "+faststart",
                 str(output_path),
             ])
             log.info("Rendering multi-scene Shorts %dx%d, %.3fs (%d scenes, audio=%s, subs=%s) → %s",
@@ -100,35 +124,54 @@ class ShortsRendererPlugin(RendererPlugin):
             if not input_path.is_file():
                 raise AssetError(f"Input asset not found: {input_path}")
 
-            vf_filters = [
-                f"scale={w}:{h}:force_original_aspect_ratio=decrease",
-                f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black",
-            ]
+            is_video = input_path.suffix.lower() in {".mp4", ".mov", ".avi", ".webm", ".mkv"}
+            render_dur = float(dur)
+            args = []
+            if is_video:
+                args.extend(["-t", f"{render_dur:.3f}", "-i", str(input_path)])
+            else:
+                args.extend(["-i", str(input_path)])
+
+            motion_filter = build_scene_motion_filter(
+                0,
+                w,
+                h,
+                fps,
+                render_dur,
+                motion_effect="zoom_in",
+                title="",
+                is_video=is_video,
+                is_portrait=True,
+            )
+            filter_parts = [motion_filter]
+            last_v = "[v0]"
 
             if subtitle_path and subtitle_path.is_file():
                 sub_escaped = str(subtitle_path.resolve()).replace("\\", "/").replace(":", "\\:")
-                vf_filters.append(f"subtitles='{sub_escaped}'")
-
-            args = [
-                "-framerate", str(fps),
-                "-loop", "1",
-                "-i", str(input_path),
-            ]
+                sub_style = (
+                    "force_style='FontSize=16,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,"
+                    "BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=45'"
+                )
+                filter_parts.append(f"[v0]subtitles='{sub_escaped}':{sub_style}[vout]")
+                last_v = "[vout]"
 
             if audio_path and audio_path.is_file():
                 args.extend(["-i", str(audio_path)])
-                args.extend(["-c:a", "aac", "-b:a", "128k"])
+                args.extend(["-filter_complex", ";".join(filter_parts)])
+                args.extend(["-map", last_v, "-map", "1:a", "-c:a", "aac", "-b:a", "128k"])
             else:
-                args.append("-an")
+                args.extend(["-filter_complex", ";".join(filter_parts)])
+                args.extend(["-map", last_v, "-an"])
 
-            render_dur = float(dur)
             args.extend([
                 "-t", f"{render_dur:.3f}",
-                "-vf", ",".join(vf_filters),
                 "-c:v", "libx264",
-                "-preset", "ultrafast",
+                "-preset", "veryfast",
+                "-crf", "22",
                 "-pix_fmt", "yuv420p",
                 "-r", str(fps),
+                "-g", str(fps * 2),
+                "-movflags", "+faststart",
                 str(output_path),
             ])
 

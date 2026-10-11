@@ -20,6 +20,7 @@ class ScenePlan:
     license: str = "unspecified"
     attribution: str = ""
     source_url: str = ""
+    motion_effect: str = "zoom_in"
 
 
 @dataclass
@@ -28,3 +29,7 @@ class VisualPlan:
     scenes: List[ScenePlan] = field(default_factory=list)
     total_duration_seconds: float = 0.0
     is_multi_scene: bool = False
+    distinct_assets_count: int = 0
+    has_repeated_assets: bool = False
+    animation_type: str = "2d_motion"  # Genuine 2D motion (pan/zoom/ken burns); NOT 3D
+

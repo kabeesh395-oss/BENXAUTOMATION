@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BENX Podcast & Livestream to Shorts Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #121826;
+      --card-border: #1e293b;
+      --accent-primary: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      background: rgba(18, 24, 38, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-cyan));
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: white;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .brand-tag {
+      font-size: 0.7rem;
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: var(--accent-primary);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-left: 0.5rem;
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 1.5rem;
+      font-size: 0.85rem;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--text-muted);
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-muted);
+    }
+    .dot.online { background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald); }
+    .dot.offline { background: var(--accent-rose); }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1300px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Workflow Pipeline Steps */
+    .stepper {
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      overflow-x: auto;
+    }
+    .step-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+      min-width: 90px;
+      opacity: 0.5;
+      transition: all 0.2s ease;
+    }
+    .step-node.active {
+      opacity: 1;
+    }
+    .step-node.active .step-num {
+      background: var(--accent-primary);
+      color: white;
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #1e293b;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .step-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    /* Section Panels */
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .panel.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-header {
+      margin-bottom: 1.5rem;
+    }
+    .panel-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .panel-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Forms & Inputs */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      background: #0b0f19;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    .row {
+      display: flex;
+      gap: 1.25rem;
+    }
+    .col { flex: 1; }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent-primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1.75rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .btn-secondary {
+      background: #1e293b;
+      color: var(--text-main);
+    }
+    .btn-secondary:hover { background: #334155; }
+    .btn-danger {
+      background: var(--accent-rose);
+    }
+
+    /* Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+    .clip-card {
+      background: #0b0f19;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .clip-card:hover, .clip-card.selected {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge-score {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--accent-emerald);
+      color: var(--accent-emerald);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+    }
+    .hook-quote {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.4;
+    }
+    .card-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .timing-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: #1e293b;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: var(--accent-cyan);
+    }
+
+    /* Disclaimer Box */
+    .alert-box {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid var(--accent-amber);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .alert-box.danger {
+      background: rgba(244, 63, 94, 0.1);
+      border-color: var(--accent-rose);
+      color: #fecdd3;
+    }
+
+    /* Preview Layout */
+    .preview-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+    .video-frame {
+      width: 100%;
+      aspect-ratio: 9/16;
+      background: black;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+    }
+    .video-frame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Console Logs */
+    .logs-drawer {
+      background: #070a12;
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #cbd5e1;
+    }
+    .log-line {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-line.INFO { color: #93c5fd; }
+    .log-line.WARNING { color: #fde047; }
+    .log-line.ERROR { color: #fca5a5; }
+
+    /* Checkbox & Controls */
+    .checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      margin-bottom: 0.75rem;
+    }
+    .checkbox-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--accent-primary);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">B</div>
+      <div class="brand-title">BENXAUTOMATION <span style="font-weight:300;color:var(--text-muted)">STUDIO</span></div>
+      <span class="brand-tag">Podcast-to-Shorts v2.0</span>
+    </div>
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="dot" id="dot-ffmpeg"></span>
+        <span id="text-ffmpeg">FFmpeg: Checking</span>
+      </div>
+      <div class="status-item">
+        <span class="dot" id="dot-oauth"></span>
+        <span id="text-oauth">YouTube OAuth: Checking</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Stepper Navigation -->
+    <div class="stepper">
+      <div class="step-node active" onclick="goToStep(1)">
+        <div class="step-num">1</div>
+        <div class="step-label">Input Source</div>
+      </div>
+      <div class="step-node" onclick="goToStep(2)">
+        <div class="step-num">2</div>
+        <div class="step-label">Analyze & Subs</div>
+      </div>
+      <div class="step-node" onclick="goToStep(3)">
+        <div class="step-num">3</div>
+        <div class="step-label">Highlights</div>
+      </div>
+      <div class="step-node" onclick="goToStep(4)">
+        <div class="step-num">4</div>
+        <div class="step-label">Captions</div>
+      </div>
+      <div class="step-node" onclick="goToStep(5)">
+        <div class="step-num">5</div>
+        <div class="step-label">Rights Review</div>
+      </div>
+      <div class="step-node" onclick="goToStep(6)">
+        <div class="step-num">6</div>
+        <div class="step-label">Render 9:16</div>
+      </div>
+      <div class="step-node" onclick="goToStep(7)">
+        <div class="step-num">7</div>
+        <div class="step-label">Preview & Meta</div>
+      </div>
+      <div class="step-node" onclick="goToStep(8)">
+        <div class="step-num">8</div>
+        <div class="step-label">Approve & Upload</div>
+      </div>
+    </div>
+
+    <!-- Step 1: Input -->
+    <div class="panel active" id="panel-1">
+      <div class="panel-header">
+        <h2 class="panel-title">1. Podcast or Livestream Input</h2>
+        <p class="panel-subtitle">Provide an authorized YouTube replay link or a locally owned/licensed video file path.</p>
+      </div>
+
+      <div class="alert-box">
+        <strong>Authorized Access Policy:</strong> We only access publicly authorized, unencrypted replay streams via standard APIs. We never bypass DRM, platform controls, or private member protections.
+      </div>
+
+      <div class="form-group">
+        <label>Input URL or Local File Path</label>
+        <input type="text" id="input-source" placeholder="e.g. https://www.youtube.com/watch?v=... or E:\New folder\BENXAUTOMATION\output\sample_card_longform.mp4" value="E:\New folder\BENXAUTOMATION\output\sample_card_longform.mp4">
+      </div>
+
+      <button class="btn" onclick="ingestSource()">
+        <span>Next: Ingest & Probe Stream</span> &rarr;
+      </button>
+
+      <div id="ingest-result" style="margin-top:1.5rem; display:none;">
+        <div class="alert-box" style="background:rgba(16,185,129,0.1); border-color:var(--accent-emerald);">
+          <strong>Ingestion Success!</strong><br>
+          <span id="ingest-info"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Analyze -->
+    <div class="panel" id="panel-2">
+      <div class="panel-header">
+        <h2 class="panel-title">2. Transcription & Multilingual Audio Analysis</h2>
+        <p class="panel-subtitle">Parse embedded closed-captions or transcribe audio chunks with millisecond synchronization.</p>
+      </div>
+
+      <div class="row">
+        <div class="col form-group">
+          <label>Language Support</label>
+          <select id="select-lang">
+            <option value="en">English (en)</option>
+            <option value="ta">Tamil (ta)</option>
+            <option value="ta-en">Tamil-English (Tanglish)</option>
+          </select>
+        </div>
+        <div class="col form-group">
+          <label>Max Candidate Clips</label>
+          <input type="number" id="num-candidates" value="4" min="1" max="8">
+        </div>
+        <div class="col form-group">
+          <label>Target Clip Duration</label>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <input type="number" id="min-dur" value="15" min="5" max="60" style="width:70px">s to
+            <input type="number" id="max-dur" value="60" min="15" max="60" style="width:70px">s
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" onclick="analyzePodcast()">
+        <span>Start AI Highlight Analysis</span> &rarr;
+      </button>
+    </div>
+
+    <!-- Step 3: Select Highlights -->
+    <div class="panel" id="panel-3">
+      <div class="panel-header">
+        <h2 class="panel-title">3. Detected High-Engagement Highlights</h2>
+        <p class="panel-subtitle">Select a candidate clip. Each clip has a verified opening hook and preserves full conversation context.</p>
+      </div>
+
+      <div class="cards-grid" id="candidates-container">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div style="margin-top:2rem; display:flex; gap:1rem;">
+        <button class="btn" onclick="goToStep(4)">Continue to Caption Customization &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Caption Customization -->
+    <div class="panel" id="panel-4">
+      <div class="panel-header">
+        <h2 class="panel-title">4. Subtitle & Typography Styling</h2>
+        <p class="panel-subtitle">Configure animated burned-in subtitles optimized for vertical 9:16 mobile viewers.</p>
+      </div>
+
+      <div class="row">
+        <div class="col form-group">
+          <label>Font Family</label>
+          <select id="sub-font">
+            <option value="Arial">Arial Bold (Universal)</option>
+            <option value="Segoe UI">Segoe UI</option>
+            <option value="Impact">Impact (Heavy Viral)</option>
+          </select>
+        </div>
+        <div class="col form-group">
+          <label>Font Size (pt)</label>
+          <input type="number" id="sub-size" value="54" min="28" max="72">
+        </div>
+        <div class="col form-group">
+          <label>Highlight Color</label>
+          <select id="sub-color">
+            <option value="&H00FFFF&">Electric Yellow (&H00FFFF&)</option>
+            <option value="&HFFFFFF&">Clean White (&HFFFFFF&)</option>
+            <option value="&H00FF00&">Neon Green (&H00FF00&)</option>
+          </select>
+        </div>
+        <div class="col form-group">
+          <label>Vertical Position</label>
+          <input type="number" id="sub-margin" value="220" min="80" max="600">
+        </div>
+      </div>
+
+      <button class="btn" onclick="goToStep(5)">Next: Rights & Copyright Review &rarr;</button>
+    </div>
+
+    <!-- Step 5: Rights Review -->
+    <div class="panel" id="panel-5">
+      <div class="panel-header">
+        <h2 class="panel-title">5. Mandatory Rights & Copyright Declaration</h2>
+        <p class="panel-subtitle">A legal declaration of ownership, license, or explicit permission is required prior to publication.</p>
+      </div>
+
+      <div class="alert-box danger">
+        <strong>CRITICAL LEGAL COMPLIANCE NOTICE:</strong><br>
+        Attribution alone does NOT grant usage rights under copyright law. Automated verification checks cannot guarantee legal immunity. You must hold genuine ownership, an explicit license, or verified written permission from the copyright owner before publishing third-party footage.
+      </div>
+
+      <div class="row">
+        <div class="col form-group">
+          <label>Ownership / License Type</label>
+          <select id="rights-type">
+            <option value="creator_owned">Original Creator / Sole Copyright Owner</option>
+            <option value="licensed">Commercially or Non-Commercially Licensed</option>
+            <option value="permitted">Explicit Written Permission from Rights Holder</option>
+            <option value="public_domain">Verified Public Domain</option>
+          </select>
+        </div>
+        <div class="col form-group">
+          <label>Rights Holder / Author</label>
+          <input type="text" id="rights-holder" placeholder="e.g. Creator Name or Licensee Studio" value="Benx Channel Production">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col form-group">
+          <label>License Evidence / Documentation Reference</label>
+          <input type="text" id="rights-evidence" placeholder="e.g. License Agreement #10492 or Direct Ownership Claim" value="Original self-produced livestream replay footage">
+        </div>
+        <div class="col form-group">
+          <label>Music Clearance</label>
+          <select id="rights-music">
+            <option value="no_music">No Music (Speech Only)</option>
+            <option value="royalty_free">Verified Royalty-Free Library Track</option>
+            <option value="cleared">Directly Licensed Commercial Track</option>
+            <option value="unlicensed">Unlicensed (BLOCKED FROM UPLOAD)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Attribution Requirement & Text</label>
+        <input type="text" id="rights-attr" value="Footage created by Benx Channel Production. All rights reserved.">
+      </div>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="check-confirm-rights" checked>
+        <span>I explicitly confirm that I possess verifiable ownership, a valid commercial license, or authorized written permission for this footage.</span>
+      </label>
+
+      <label class="checkbox-label">
+        <input type="checkbox" id="check-accept-disclaimer" checked>
+        <span>I acknowledge the copyright disclaimer and understand that attribution alone does not grant copyright usage rights.</span>
+      </label>
+
+      <div style="margin-top:1.5rem;">
+        <button class="btn" onclick="verifyAndProceedToRender()">Verify Rights & Proceed to Render &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 6: Render -->
+    <div class="panel" id="panel-6">
+      <div class="panel-header">
+        <h2 class="panel-title">6. Video Reframing & Subtitle Rendering</h2>
+        <p class="panel-subtitle">Render real vertical 9:16 (1080x1920) MP4 video with FFmpeg.</p>
+      </div>
+
+      <div class="row">
+        <div class="col form-group">
+          <label>Reframing Mode</label>
+          <select id="render-mode">
+            <option value="blur_pad">Blur Padded (16:9 inside 9:16 vertical with ambient blur background - Recommended)</option>
+            <option value="center_crop">Center Crop (Direct 9:16 crop from center of frame)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="alert-box">
+        <strong>Rendering Details:</strong>
+        <div id="render-details">Clip Selected: clip_1 (Start: 0.0s, End: 25.0s, Duration: 25.0s)</div>
+      </div>
+
+      <button class="btn" id="btn-start-render" onclick="startRender()">
+        <span>Render Vertical Short MP4</span> &rarr;
+      </button>
+    </div>
+
+    <!-- Step 7: Preview & Metadata -->
+    <div class="panel" id="panel-7">
+      <div class="panel-header">
+        <h2 class="panel-title">7. Preview Rendered Short & Generated Metadata</h2>
+        <p class="panel-subtitle">Review the true rendered MP4 video, burned subtitles, extracted thumbnail, and full metadata package.</p>
+      </div>
+
+      <div class="preview-layout">
+        <div class="video-frame">
+          <video id="player-preview" controls></video>
+        </div>
+        <div>
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" id="meta-title" readonly>
+          </div>
+          <div class="form-group">
+            <label>Opening Hook</label>
+            <input type="text" id="meta-hook" readonly>
+          </div>
+          <div class="form-group">
+            <label>Description with Full Attribution</label>
+            <textarea id="meta-desc" rows="6" readonly></textarea>
+          </div>
+          <div class="form-group">
+            <label>Generated Assets</label>
+            <div id="meta-files" style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text-muted)"></div>
+          </div>
+
+          <button class="btn" onclick="goToStep(8)">Proceed to YouTube Upload Approval &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 8: Approve & Upload -->
+    <div class="panel" id="panel-8">
+      <div class="panel-header">
+        <h2 class="panel-title">8. Final Human Approval & Private YouTube Upload</h2>
+        <p class="panel-subtitle">Review channel destination, enforce private testing visibility, and submit upload.</p>
+      </div>
+
+      <div class="alert-box">
+        <strong>Channel Target:</strong> BENX_07 (@benx_07-e4n)<br>
+        <strong>Safety Guard:</strong> Uploads strictly default to <strong>PRIVATE</strong> for manual review. Unattended public publishing is disabled.
+      </div>
+
+      <label class="checkbox-label" style="margin-top:1.5rem;">
+        <input type="checkbox" id="check-human-approval" checked>
+        <strong>I explicitly approve the selected video cut, synchronized subtitles, and metadata for upload.</strong>
+      </label>
+
+      <div style="margin-top:1.5rem;">
+        <button class="btn" id="btn-upload" onclick="executeUpload()">
+          <span>Upload to YouTube (Private)</span> &rarr;
+        </button>
+      </div>
+
+      <div id="upload-result-container" style="margin-top:2rem; display:none;">
+        <div class="alert-box" style="background:rgba(16,185,129,0.15); border-color:var(--accent-emerald);">
+          <h4 style="color:var(--accent-emerald);margin-bottom:0.5rem;">YouTube Upload Successful!</h4>
+          <p id="upload-details"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Real-time Console Logs -->
+    <div>
+      <h3 style="font-size:1rem;margin-bottom:0.75rem;color:var(--text-muted)">Real-time Pipeline Terminal Logs</h3>
+      <div class="logs-drawer" id="log-window">
+        <div class="log-line INFO">[SYSTEM] BENX Studio Initialized. Ready for input.</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentStep = 1;
+    let selectedClip = null;
+    let candidatesList = [];
+
+    async function updateStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        
+        const dotFfmpeg = document.getElementById('dot-ffmpeg');
+        const textFfmpeg = document.getElementById('text-ffmpeg');
+        if (data.ffmpeg_available) {
+          dotFfmpeg.className = 'dot online';
+          textFfmpeg.textContent = 'FFmpeg: Ready';
+        } else {
+          dotFfmpeg.className = 'dot offline';
+          textFfmpeg.textContent = 'FFmpeg: Missing';
+        }
+
+        const dotOauth = document.getElementById('dot-oauth');
+        const textOauth = document.getElementById('text-oauth');
+        if (data.youtube_oauth_status === 'CONNECTED') {
+          dotOauth.className = 'dot online';
+          textOauth.textContent = 'Channel: ' + (data.youtube_channel || 'BENX_07');
+        } else {
+          dotOauth.className = 'dot offline';
+          textOauth.textContent = 'OAuth: ' + data.youtube_oauth_status;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function pollLogs() {
+      try {
+        const res = await fetch('/api/logs');
+        const logs = await res.json();
+        const container = document.getElementById('log-window');
+        container.innerHTML = logs.map(l => `<div class="log-line ${l.level}">${l.message}</div>`).join('');
+        container.scrollTop = container.scrollHeight;
+      } catch (e) {}
+    }
+
+    setInterval(pollLogs, 2000);
+    setInterval(updateStatus, 5000);
+    updateStatus();
+
+    function goToStep(num) {
+      currentStep = num;
+      document.querySelectorAll('.panel').forEach((p, idx) => {
+        p.classList.toggle('active', idx + 1 === num);
+      });
+      document.querySelectorAll('.step-node').forEach((node, idx) => {
+        node.classList.toggle('active', idx + 1 === num);
+      });
+    }
+
+    async function ingestSource() {
+      const source = document.getElementById('input-source').value.trim();
+      if (!source) return alert('Please enter a URL or file path.');
+
+      const res = await fetch('/api/ingest', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ source }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert('Ingest error: ' + (data.detail || 'Unknown error'));
+        return;
+      }
+
+      document.getElementById('ingest-result').style.display = 'block';
+      document.getElementById('ingest-info').innerHTML = `
+        <strong>Title:</strong> ${data.input.title}<br>
+        <strong>Duration:</strong> ${data.input.duration_seconds.toFixed(1)}s<br>
+        <strong>Source:</strong> ${data.input.source_identifier}
+      `;
+
+      setTimeout(() => goToStep(2), 1000);
+    }
+
+    async function analyzePodcast() {
+      const lang = document.getElementById('select-lang').value;
+      const maxCands = parseInt(document.getElementById('num-candidates').value);
+      const minDur = parseFloat(document.getElementById('min-dur').value);
+      const maxDur = parseFloat(document.getElementById('max-dur').value);
+
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          language: lang,
+          max_candidates: maxCands,
+          min_duration: minDur,
+          max_duration: maxDur
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert('Analysis error: ' + (data.detail || 'Unknown error'));
+        return;
+      }
+
+      candidatesList = data.candidates;
+      renderCandidates(data.candidates);
+      goToStep(3);
+    }
+
+    function renderCandidates(candidates) {
+      const container = document.getElementById('candidates-container');
+      container.innerHTML = '';
+
+      if (!candidates || candidates.length === 0) {
+        container.innerHTML = '<div class="alert-box">No candidate highlights discovered. Try expanding duration limits.</div>';
+        return;
+      }
+
+      candidates.forEach((cand, idx) => {
+        const card = document.createElement('div');
+        card.className = 'clip-card' + (idx === 0 ? ' selected' : '');
+        card.innerHTML = `
+          <div class="card-top">
+            <span class="timing-badge">${cand.start_seconds.toFixed(1)}s - ${cand.end_seconds.toFixed(1)}s (${cand.duration.toFixed(1)}s)</span>
+            <span class="badge-score">${cand.score.toFixed(0)}% Viral Score</span>
+          </div>
+          <div class="hook-quote">"${cand.hook}"</div>
+          <div class="card-desc">${cand.summary}</div>
+          <div style="margin-top:auto;padding-top:0.5rem;">
+            <button class="btn btn-secondary" style="width:100%;font-size:0.85rem;" onclick="selectCandidate('${cand.clip_id}', event)">
+              Select This Highlight
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+        if (idx === 0) selectCandidate(cand.clip_id);
+      });
+    }
+
+    function selectCandidate(clipId, evt) {
+      if (evt) evt.stopPropagation();
+      selectedClip = candidatesList.find(c => c.clip_id === clipId);
+      document.querySelectorAll('.clip-card').forEach(c => c.classList.remove('selected'));
+      
+      const cards = document.querySelectorAll('.clip-card');
+      const idx = candidatesList.findIndex(c => c.clip_id === clipId);
+      if (cards[idx]) cards[idx].classList.add('selected');
+
+      document.getElementById('render-details').innerHTML = `
+        <strong>Clip Selected:</strong> ${selectedClip.clip_id}<br>
+        <strong>Start:</strong> ${selectedClip.start_seconds.toFixed(1)}s | 
+        <strong>End:</strong> ${selectedClip.end_seconds.toFixed(1)}s | 
+        <strong>Duration:</strong> ${selectedClip.duration.toFixed(1)}s<br>
+        <strong>Hook:</strong> "${selectedClip.hook}"
+      `;
+    }
+
+    function verifyAndProceedToRender() {
+      const confirmRights = document.getElementById('check-confirm-rights').checked;
+      const acceptDisclaimer = document.getElementById('check-accept-disclaimer').checked;
+      const musicSource = document.getElementById('rights-music').value;
+
+      if (!confirmRights || !acceptDisclaimer) {
+        alert('You must explicitly confirm rights ownership and accept the legal copyright disclaimer.');
+        return;
+      }
+
+      if (musicSource === 'unlicensed') {
+        alert('CRITICAL: Unlicensed music is detected and blocked. Clear or remove the background music before proceeding.');
+        return;
+      }
+
+      goToStep(6);
+    }
+
+    async function startRender() {
+      if (!selectedClip) {
+        alert('Please select a highlight candidate first.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-start-render');
+      btn.disabled = true;
+      btn.innerText = 'Rendering MP4 with FFmpeg... Please wait';
+
+      const style = {
+        font_name: document.getElementById('sub-font').value,
+        font_size: parseInt(document.getElementById('sub-size').value),
+        primary_color: document.getElementById('sub-color').value,
+        margin_v: parseInt(document.getElementById('sub-margin').value)
+      };
+
+      const rightsDecl = {
+        ownership_type: document.getElementById('rights-type').value,
+        rights_holder: document.getElementById('rights-holder').value,
+        license_evidence: document.getElementById('rights-evidence').value,
+        music_source: document.getElementById('rights-music').value,
+        attribution_text: document.getElementById('rights-attr').value,
+        attribution_required: true,
+        user_confirmed_rights: document.getElementById('check-confirm-rights').checked,
+        disclaimer_accepted: document.getElementById('check-accept-disclaimer').checked
+      };
+
+      try {
+        const res = await fetch('/api/render', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            clip_id: selectedClip.clip_id,
+            start_seconds: selectedClip.start_seconds,
+            end_seconds: selectedClip.end_seconds,
+            hook: selectedClip.hook,
+            summary: selectedClip.summary,
+            reframing_mode: document.getElementById('render-mode').value,
+            subtitle_style: style,
+            rights_declaration: rightsDecl
+          })
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+        btn.innerText = 'Render Vertical Short MP4 →';
+
+        if (!res.ok) {
+          alert('Render error: ' + (data.detail || 'Unknown error'));
+          return;
+        }
+
+        // Populate Preview panel
+        const meta = data.metadata;
+        document.getElementById('player-preview').src = `/api/clips/${meta.clip_id}/preview`;
+        document.getElementById('meta-title').value = meta.title;
+        document.getElementById('meta-hook').value = meta.hook;
+        document.getElementById('meta-desc').value = meta.description;
+        document.getElementById('meta-files').innerHTML = `
+          MP4: ${meta.video_path}<br>
+          SRT: ${meta.srt_path}<br>
+          VTT: ${meta.vtt_path}<br>
+          Thumb: ${meta.thumbnail_path}
+        `;
+
+        goToStep(7);
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerText = 'Render Vertical Short MP4 →';
+        alert('Network/server error rendering clip: ' + err);
+      }
+    }
+
+    async function executeUpload() {
+      if (!selectedClip) return alert('No clip selected');
+      const approved = document.getElementById('check-human-approval').checked;
+      if (!approved) {
+        return alert('Please verify and check the explicit approval box before uploading.');
+      }
+
+      const btn = document.getElementById('btn-upload');
+      btn.disabled = true;
+      btn.innerText = 'Uploading to YouTube (Private)...';
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            clip_id: selectedClip.clip_id,
+            privacy_status: 'private',
+            user_approved: true
+          })
+        });
+        const data = await res.json();
+        btn.disabled = false;
+        btn.innerText = 'Upload to YouTube (Private) →';
+
+        if (!res.ok) {
+          alert('Upload failed: ' + (data.detail || 'Unknown error'));
+          return;
+        }
+
+        const upRes = data.upload_result;
+        document.getElementById('upload-result-container').style.display = 'block';
+        document.getElementById('upload-details').innerHTML = `
+          <strong>Video ID:</strong> ${upRes.video_id || upRes.id}<br>
+          <strong>Title:</strong> ${upRes.title || 'Short'}<br>
+          <strong>Visibility:</strong> ${upRes.privacy_status} (Strict test privacy)<br>
+          <strong>URL:</strong> <a href="${upRes.url}" target="_blank" style="color:var(--accent-cyan)">${upRes.url}</a>
+        `;
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerText = 'Upload to YouTube (Private) →';
+        alert('Upload network error: ' + err);
+      }
+    }
+  </script>
+</body>
+</html>

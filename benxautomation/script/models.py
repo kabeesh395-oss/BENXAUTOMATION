@@ -25,6 +25,10 @@ class ScriptScene:
     narration: str
     visual_description: str
     estimated_duration_seconds: float = 0.0
+    fact_number: Optional[int] = None
+    fact_title: Optional[str] = None
+    source: Optional[str] = None
+    source_url: Optional[str] = None
 
 
 @dataclass
@@ -40,3 +44,6 @@ class ScriptResult:
     tone: str = "engaging and informative"
     estimated_duration_seconds: float = 0.0
     is_ai_generated: bool = False
+    research_sources: List[dict] = field(default_factory=list)
+    facts_count: int = 0
+

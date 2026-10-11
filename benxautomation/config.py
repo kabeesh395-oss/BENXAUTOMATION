@@ -55,14 +55,17 @@ class AssetsConfig(BaseModel):
 
 class ScriptConfig(BaseModel):
     """Configuration for AI and fallback script generation."""
-    provider: str = "openai"  # "openai", "fallback"
+    provider: str = "auto"  # "auto", "gemini", "openai", "fallback"
     model: str = "gpt-4o-mini"
     api_key_env: str = "OPENAI_API_KEY"
     base_url_env: str = "OPENAI_BASE_URL"
-    temperature: float = 0.7
+    gemini_model: str = "gemini-3.5-flash"
+    gemini_api_key_env: str = "GEMINI_API_KEY"
+    temperature: float = 0.4
     timeout_seconds: int = 30
     default_target_audience: str = "general audience"
     default_tone: str = "engaging and informative"
+
 
 
 class AudioMixingConfig(BaseModel):
