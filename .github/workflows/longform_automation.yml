@@ -16,6 +16,15 @@ name: Long-Form Landscape Weekly Automation
         description: 'Duration in seconds (e.g. 60 to 180)'
         required: true
         default: '60'
+      format:
+        description: 'Output Format (both = 16:9 + 9:16 Shorts, shorts = 9:16 Shorts, longform = 16:9)'
+        required: true
+        type: choice
+        options:
+          - 'both'
+          - 'shorts'
+          - 'longform'
+        default: 'both'
       mode:
         description: 'Execution Mode'
         required: true
@@ -32,7 +41,7 @@ concurrency:
 
 jobs:
   longform-video:
-    name: Generate Long-Form 16:9 Video
+    name: Generate Long-Form & Shorts Video
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -74,13 +83,14 @@ jobs:
         run: |
           python -c "from benxautomation.cloud_runner import hydrate_oauth_secrets; ready, msgs = hydrate_oauth_secrets(); print(ready, msgs)"
 
-      - name: Run Long-Form Video Pipeline
+      - name: Run Video Pipeline
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           EXTRA_FLAGS=""
           TOPIC="${{ github.event.inputs.topic || '5 Surprising Mysteries of the Deep Sea' }}"
           DUR="${{ github.event.inputs.duration_seconds || '60' }}"
+          FORMAT="${{ github.event.inputs.format || 'both' }}"
           
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.mode }}" = "dry_run" ]; then
@@ -88,19 +98,22 @@ jobs:
             fi
           fi
 
-          echo "Generating longform video: Topic='$TOPIC', Duration=$DUR"
-          python -m benxautomation.main --topic "$TOPIC" --duration "$DUR" --format longform $EXTRA_FLAGS
+          echo "Generating video: Topic='$TOPIC', Duration=$DUR, Format=$FORMAT"
+          python -m benxautomation.main --topic "$TOPIC" --duration "$DUR" --format "$FORMAT" $EXTRA_FLAGS
 
-      - name: Upload Generated Long-Form Video Artifacts
+      - name: Upload Generated Video Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: longform-video-output-${{ github.run_number }}
+          name: video-output-${{ github.run_number }}
           path: |
             output/*_longform.mp4
-            output/quality_report.json
-            output/*.srt
-            output/scene_plan.json
+            output/*_shorts.mp4
+            output/*_narration.mp3
+            output/*_subtitles.srt
+            output/*_quality_report.json
+            output/*_scene_plan.json
+            output/*_script.json
           retention-days: 14
 
       - name: Post-Run Failure Notification

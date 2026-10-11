@@ -17,9 +17,9 @@ name: Podcast & Shorts Daily Automation
         required: true
         type: choice
         options:
-          - 'dry_run'          # Safe test without uploading (Default)
-          - 'render_only'      # Render video, subtitles, metadata as artifacts
-          - 'upload_private'   # Render and upload strictly as PRIVATE for review
+          - 'dry_run'
+          - 'render_only'
+          - 'upload_private'
         default: 'dry_run'
       clips_target:
         description: 'Number of highlight clips to generate (1 to 4)'
@@ -77,24 +77,19 @@ jobs:
           YOUTUBE_TOKENS_JSON: ${{ secrets.YOUTUBE_TOKENS_JSON }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Determine flags based on trigger type
           EXTRA_FLAGS=""
           
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.mode }}" = "dry_run" ]; then
-              EXTRA_FLAGS="--dry-run"
-            elif [ "${{ github.event.inputs.mode }}" = "upload_private" ]; then
-              EXTRA_FLAGS="--upload-private"
-            fi
-            
+            EXTRA_FLAGS="--mode ${{ github.event.inputs.mode }} --clips-target ${{ github.event.inputs.clips_target }}"
             if [ -n "${{ github.event.inputs.source_url }}" ]; then
               EXTRA_FLAGS="$EXTRA_FLAGS --source '${{ github.event.inputs.source_url }}'"
+            else
+              echo "ERROR: source_url is required for podcast clipping. For original videos from topics, use the Topic Video automation workflow."
+              exit 1
             fi
-            
-            EXTRA_FLAGS="$EXTRA_FLAGS --clips-target ${{ github.event.inputs.clips_target }}"
           else
-            # Scheduled Cron runs in safe dry-run mode unless production secrets exist
-            EXTRA_FLAGS="--dry-run --clips-target 3"
+            echo "Notice: Scheduled podcast-to-shorts requires a configured source video. Skipping run."
+            exit 0
           fi
 
           echo "Running cloud automation with flags: $EXTRA_FLAGS"

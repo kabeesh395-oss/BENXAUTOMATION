@@ -186,6 +186,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--music-source", default="no_music", help="Music clearance status")
     parser.add_argument("--confirm-rights", action="store_true", help="Confirm ownership rights")
     parser.add_argument("--accept-disclaimer", action="store_true", help="Accept copyright disclaimer")
+    parser.add_argument(
+        "--mode",
+        choices=["dry_run", "render_only", "upload_private"],
+        default=None,
+        help="Pipeline execution mode (dry_run, render_only, upload_private)",
+    )
     parser.add_argument("--upload-private", action="store_true", help="Upload to YouTube as PRIVATE")
     parser.add_argument("--sync-state", action="store_true", help="Sync ledger state to git branch if configured")
     return parser
@@ -194,6 +200,15 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    # Resolve explicit --mode choice
+    if args.mode == "dry_run":
+        args.dry_run = True
+    elif args.mode == "upload_private":
+        args.upload_private = True
+    elif args.mode == "render_only":
+        args.dry_run = False
+        args.upload_private = False
 
     print("=======================================================")
     print("BENXAUTOMATION — Cloud CI/CD Execution Runner")
@@ -217,37 +232,25 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: FFmpeg is not installed in the environment. Install with 'sudo apt-get install ffmpeg'.")
         return 1
 
-    source_path = args.source or "output/sample_podcast_source.mp4"
+    source_path = args.source
+    if not source_path:
+        print("ERROR: Missing required --source parameter for podcast clipping.")
+        print("Usage: python -m benxautomation.cloud_runner --source <video_url_or_file> [options]")
+        print("Note: To generate original narrated videos from topics, use 'python -m benxautomation.main --topic ...'")
+        return 1
+
+    source_p = Path(source_path)
+    if not source_p.is_file() and not source_path.startswith("http"):
+        print(f"ERROR: Local source video '{source_path}' not found.")
+        print("Please provide a valid local video file path or YouTube URL via --source.")
+        print("Note: To generate original narrated videos from topics, use 'python -m benxautomation.main --topic ...'")
+        return 1
+
     print(f"Execution Mode:          {'DRY-RUN (Safe Verification)' if args.dry_run else 'PRODUCTION'}")
     print(f"Source Input:            {source_path}")
     print(f"Clips Target:            {args.clips_target}")
     print(f"Upload Policy:           {'STRICTLY PRIVATE' if args.upload_private else 'LOCAL ARTIFACTS ONLY (Review Mode)'}")
     print("-------------------------------------------------------")
-
-    # Safety Guard: If source missing, generate a clean synthetic test video with audio & srt
-    source_p = Path(source_path)
-    if not source_p.is_file() and not source_path.startswith("http"):
-        print(f"Local source '{source_path}' not found. Generating an authorized sample test source...")
-        from benxautomation.renderer.ffmpeg_utils import run_ffmpeg
-
-        source_p.parent.mkdir(parents=True, exist_ok=True)
-        run_ffmpeg([
-            "-f", "lavfi", "-i", "testsrc=size=1920x1080:rate=30",
-            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100",
-            "-t", "15",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
-            str(source_p),
-        ])
-        sample_srt = source_p.with_suffix(".srt")
-        if not sample_srt.is_file():
-            sample_srt.write_text(
-                "1\n00:00:00,000 --> 00:00:04,500\nWelcome to the automated creator podcast.\n\n"
-                "2\n00:00:04,500 --> 00:00:09,000\nWhy do ninety percent of creators quit early?\n\n"
-                "3\n00:00:09,000 --> 00:00:14,000\nBecause consistency compounds when you produce daily shorts.\n",
-                encoding="utf-8",
-            )
-        print(f"Created sample test source: {source_p} ({source_p.stat().st_size} bytes)")
 
     pipeline = PodcastToShortsPipeline()
     rights_decl = RightsDeclaration(

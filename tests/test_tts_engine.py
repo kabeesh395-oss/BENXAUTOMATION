@@ -58,3 +58,47 @@ class TestTTSEngine:
                 mock_probe.side_effect = RuntimeError("ffprobe crashed")
                 result = engine.synthesize("Some narration text", fake_audio)
                 assert result.duration_seconds == 2.0
+
+    def test_synthesized_audio_is_speech_not_constant_tone_or_silence(self, tmp_path: Path):
+        """Verify that synthesized audio has dynamic speech amplitude, not a constant tone or silence."""
+        import subprocess
+        from benxautomation.renderer.ffmpeg_utils import find_ffmpeg
+
+        engine = TTSEngine()
+        out_file = tmp_path / "speech_check.mp3"
+        res = engine.synthesize(
+            "This is a verified test of genuine neural speech narration.",
+            out_file,
+            voice="en-US-AriaNeural",
+        )
+        assert out_file.is_file()
+        assert out_file.stat().st_size > 1000
+
+        ffmpeg_bin = find_ffmpeg()
+        # Run astats to extract dynamic range
+        cmd = [
+            ffmpeg_bin, "-i", str(out_file),
+            "-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
+            "-f", "null", "-",
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        rms_levels = []
+        for line in proc.stderr.splitlines():
+            if "lavfi.astats.Overall.RMS_level=" in line:
+                val = float(line.split("=")[-1])
+                rms_levels.append(val)
+
+        assert len(rms_levels) > 10, "Expected multiple audio frames"
+        # A 1000Hz sine wave has constant RMS (-3.01 dB). Speech fluctuates with syllables and pauses.
+        unique_levels = {round(x, 1) for x in rms_levels if x > -100}
+        assert len(unique_levels) >= 5, f"Expected fluctuating speech levels, got {unique_levels}"
+
+    def test_tts_failure_raises_actionable_error(self, tmp_path: Path):
+        """Verify that TTS failure raises TTSError and never creates fake audio."""
+        engine = TTSEngine()
+        out_file = tmp_path / "failed.mp3"
+
+        with patch("edge_tts.Communicate.save", side_effect=RuntimeError("EdgeTTS service unavailable")):
+            with pytest.raises(TTSError, match="TTS synthesis failed"):
+                engine.synthesize("Valid text", out_file)
+        assert not out_file.exists()

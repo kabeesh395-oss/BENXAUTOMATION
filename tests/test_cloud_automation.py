@@ -106,8 +106,79 @@ def test_hydrate_oauth_secrets_missing_graceful(tmp_path: Path, monkeypatch: pyt
     assert ready is False
 
 
+def _create_test_podcast_fixture(path: Path) -> Path:
+    """Helper to create a minimal valid test video with srt transcript for testing."""
+    from benxautomation.renderer.ffmpeg_utils import run_ffmpeg
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    run_ffmpeg([
+        "-f", "lavfi", "-i", "color=c=black:s=640x360:r=25",
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=mono:sample_rate=24000",
+        "-t", "15",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        str(path),
+    ])
+    srt_path = path.with_suffix(".srt")
+    srt_path.write_text(
+        "1\n00:00:00,000 --> 00:00:05,000\nWelcome to creator podcast.\n\n"
+        "2\n00:00:05,000 --> 00:00:10,000\nConsistency matters most.\n\n"
+        "3\n00:00:10,000 --> 00:00:15,000\nKeep creating every day.\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_cloud_runner_missing_source_fails_with_actionable_error(tmp_path: Path):
+    """Regression test: Cloud runner must abort with code 1 if source file is missing."""
+    missing_src = tmp_path / "non_existent_source.mp4"
+    ret = main(["--source", str(missing_src)])
+    assert ret == 1
+    assert not missing_src.exists()
+
+
+def test_cloud_runner_omitted_source_fails_cleanly():
+    """Regression test: Cloud runner must abort with code 1 if --source is not specified."""
+    ret = main([])
+    assert ret == 1
+
+
+def test_no_sine_beep_generated_in_codebase():
+    """Regression test: Ensure no 1000Hz or other sine tone fallbacks exist in python source files."""
+    repo_root = Path(__file__).parent.parent
+    py_files = list((repo_root / "benxautomation").rglob("*.py"))
+    for py_file in py_files:
+        content = py_file.read_text(encoding="utf-8")
+        assert "sine=frequency=" not in content, f"Found sine test tone in {py_file}"
+        assert "sine=" not in content, f"Found sine generator in {py_file}"
+
+
 def test_cloud_runner_dry_run_execution(tmp_path: Path):
-    """Verify that cloud runner completes dry-run execution without uploading."""
-    test_src = tmp_path / "test_sample.mp4"
+    """Verify that cloud runner completes dry-run execution on a valid source video without uploading."""
+    test_src = _create_test_podcast_fixture(tmp_path / "test_sample.mp4")
     ret = main(["--dry-run", "--source", str(test_src), "--clips-target", "1"])
+    assert ret == 0
+
+
+def test_workflow_dispatch_inputs_specification():
+    """Verify podcast_shorts_automation.yml workflow_dispatch matches exact requirements."""
+    shorts_wf = Path(".github/workflows/podcast_shorts_automation.yml")
+    parsed = yaml.safe_load(shorts_wf.read_text(encoding="utf-8"))
+    on_block = parsed.get("on") or parsed.get(True)
+    assert "workflow_dispatch" in on_block
+    inputs = on_block["workflow_dispatch"]["inputs"]
+
+    assert "mode" in inputs
+    assert inputs["mode"]["type"] == "choice"
+    assert inputs["mode"]["options"] == ["dry_run", "render_only", "upload_private"]
+    assert inputs["mode"]["default"] == "dry_run"
+
+    assert "clips_target" in inputs
+    assert str(inputs["clips_target"]["default"]) == "1"
+
+
+def test_cloud_runner_mode_flag_routing(tmp_path: Path):
+    """Verify that --mode dry_run sets dry_run flag and succeeds safely."""
+    test_src = _create_test_podcast_fixture(tmp_path / "test_sample_mode.mp4")
+    ret = main(["--mode", "dry_run", "--source", str(test_src), "--clips-target", "1"])
     assert ret == 0
