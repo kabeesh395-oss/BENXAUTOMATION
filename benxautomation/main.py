@@ -111,9 +111,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--workflow",
-        choices=["topic", "repurpose"],
+        choices=["topic", "repurpose", "original"],
         default=None,
-        help="Pipeline workflow: 'topic' (AI topic-to-video) or 'repurpose' (long-form to Shorts).",
+        help="Pipeline workflow: 'topic' (AI topic-to-video), 'repurpose' (long-form to Shorts), or 'original' (copyright-safe educational videos).",
     )
     parser.add_argument(
         "--mode",
@@ -354,6 +354,23 @@ def main(argv: list[str] | None = None) -> int:
     elif args.longform_only or args.format == "longform":
         render_shorts = False
         render_longform = True
+
+    # Original content workflow routing
+    if getattr(args, "workflow", None) == "original":
+        log.info("Original content workflow requested via CLI...")
+        from benxautomation.original.cli import print_summary as print_orig_summary
+        from benxautomation.original.engine import OriginalContentEngine
+
+        engine = OriginalContentEngine(
+            output_dir=args.output_dir if args.output_dir != Path("output") else Path("output/original_content")
+        )
+        summary = engine.run_all_topics(
+            upload_private=bool(args.upload_private),
+            max_shorts_per_topic=getattr(args, "clips", 2) or 2,
+            render_longform=render_longform,
+        )
+        print_orig_summary(summary)
+        return 0
 
     # Repurposing workflow routing (if --workflow repurpose or --source or --apply-manifest is provided)
     is_repurpose = (
