@@ -106,7 +106,8 @@ def test_hydrate_oauth_secrets_missing_graceful(tmp_path: Path, monkeypatch: pyt
     assert ready is False
 
 
-def test_cloud_runner_dry_run_execution():
+def test_cloud_runner_dry_run_execution(tmp_path: Path):
     """Verify that cloud runner completes dry-run execution without uploading."""
-    ret = main(["--dry-run", "--source", "output/sample_podcast_source.mp4", "--clips-target", "1"])
+    test_src = tmp_path / "test_sample.mp4"
+    ret = main(["--dry-run", "--source", str(test_src), "--clips-target", "1"])
     assert ret == 0

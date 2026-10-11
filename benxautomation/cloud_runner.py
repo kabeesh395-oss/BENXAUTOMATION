@@ -224,40 +224,29 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Upload Policy:           {'STRICTLY PRIVATE' if args.upload_private else 'LOCAL ARTIFACTS ONLY (Review Mode)'}")
     print("-------------------------------------------------------")
 
-    # Safety Guard: If dry-run, create an authorized test asset if source doesn't exist
+    # Safety Guard: If source missing, generate a clean synthetic test video with audio & srt
     source_p = Path(source_path)
     if not source_p.is_file() and not source_path.startswith("http"):
         print(f"Local source '{source_path}' not found. Generating an authorized sample test source...")
-        from benxautomation.tts.engine import TTSEngine
         from benxautomation.renderer.ffmpeg_utils import run_ffmpeg
 
-        sample_script = (
-            "Welcome to the automated creator podcast. Why do 90 percent of creators quit early? "
-            "Because consistency compounds when you produce daily shorts. Master distribution and never give up."
-        )
-        audio_path = Path("output/cloud_sample_audio.mp3")
-        engine = TTSEngine()
-        res_audio = engine.synthesize(sample_script, audio_path)
-
         source_p.parent.mkdir(parents=True, exist_ok=True)
-        sample_img = Path("assets/space_jupiter_great_red_spot.jpg")
-        if not sample_img.is_file():
-            # Use bmp or fallback
-            sample_img = Path("assets/sample_card.bmp")
-
         run_ffmpeg([
-            "-loop", "1",
-            "-i", str(sample_img),
-            "-i", str(audio_path),
-            "-c:v", "libx264",
-            "-tune", "stillimage",
+            "-f", "lavfi", "-i", "testsrc=size=1920x1080:rate=30",
+            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100",
+            "-t", "15",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac",
-            "-b:a", "192k",
-            "-pix_fmt", "yuv420p",
-            "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
-            "-shortest",
-            str(source_p)
+            str(source_p),
         ])
+        sample_srt = source_p.with_suffix(".srt")
+        if not sample_srt.is_file():
+            sample_srt.write_text(
+                "1\n00:00:00,000 --> 00:00:04,500\nWelcome to the automated creator podcast.\n\n"
+                "2\n00:00:04,500 --> 00:00:09,000\nWhy do ninety percent of creators quit early?\n\n"
+                "3\n00:00:09,000 --> 00:00:14,000\nBecause consistency compounds when you produce daily shorts.\n",
+                encoding="utf-8",
+            )
         print(f"Created sample test source: {source_p} ({source_p.stat().st_size} bytes)")
 
     pipeline = PodcastToShortsPipeline()
