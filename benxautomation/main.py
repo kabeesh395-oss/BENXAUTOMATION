@@ -137,6 +137,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Upload rendered videos strictly as PRIVATE to YouTube.",
     )
+    parser.add_argument(
+        "--upload-public",
+        action="store_true",
+        help="Upload rendered videos as PUBLIC to YouTube once daily quota permits.",
+    )
 
     # Long-form-to-Shorts repurposing options (Vizard AI-inspired workflow)
     parser.add_argument(
@@ -397,6 +402,7 @@ def main(argv: list[str] | None = None) -> int:
         results = pipeline.run_batch(
             count=args.count or 25,
             upload_private=bool(args.upload_private),
+            upload_public=bool(args.upload_public),
             sample_only=bool(args.sample_only),
         )
 
@@ -408,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[{stat}] {r.title} ({r.duration_seconds:.1f}s, Motion Score: {r.motion_score:.1f}%)")
             print(f"       Video: {r.video_path}")
             if r.youtube_video_id:
-                print(f"       YouTube (PRIVATE): {r.youtube_url} ({r.youtube_status})")
+                print(f"       YouTube: {r.youtube_url} ({r.youtube_status})")
             elif r.youtube_status != "PENDING":
                 print(f"       YouTube Status: {r.youtube_status}")
         print("=" * 60 + "\n")

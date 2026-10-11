@@ -556,6 +556,45 @@ class YouTubePublisher:
             "raw": item,
         }
 
+    def update_video_privacy(self, video_id: str, new_privacy: str = "public") -> dict[str, Any]:
+        """Update the privacy status of an existing uploaded video (e.g. from private to public)."""
+        if not self.oauth_manager:
+            raise PublishingDisabledError("YouTube OAuth manager is not configured.")
+        access_token = self.oauth_manager.get_valid_access_token()
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        cur_info = self.verify_video(video_id)
+        raw_snippet = cur_info.get("raw", {}).get("snippet", {})
+        category_id = raw_snippet.get("categoryId", "28")
+        title = raw_snippet.get("title", "")
+
+        body = {
+            "id": video_id,
+            "snippet": {
+                "title": title,
+                "categoryId": category_id,
+            },
+            "status": {
+                "privacyStatus": new_privacy,
+            },
+        }
+        resp = requests.put(
+            f"{YOUTUBE_VIDEOS_URL}?part=status,snippet",
+            headers=headers,
+            json=body,
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            raise PublishingDisabledError(f"Failed to update video privacy ({resp.status_code}): {resp.text}")
+        data = resp.json()
+        return {
+            "video_id": video_id,
+            "privacy_status": data.get("status", {}).get("privacyStatus"),
+            "url": f"https://youtu.be/{video_id}",
+        }
+
     def upload(
         self,
         video_path: Path,

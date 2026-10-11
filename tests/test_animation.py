@@ -62,7 +62,8 @@ def test_motion_validator_rejects_missing_file(tmp_path: Path):
 
 def test_cli_parsing_for_animated_workflow():
     parser = build_parser()
-    args = parser.parse_args(["--workflow", "animated", "--sample-only", "--count", "5"])
+    args = parser.parse_args(["--workflow", "animated", "--sample-only", "--count", "5", "--upload-public"])
     assert args.workflow == "animated"
     assert args.sample_only is True
     assert args.count == 5
+    assert args.upload_public is True

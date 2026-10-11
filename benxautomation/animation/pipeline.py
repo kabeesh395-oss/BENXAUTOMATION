@@ -273,8 +273,13 @@ class AnimationPipeline:
 
         return result
 
-    def upload_private_video(self, video_res: AnimatedVideoResult, script: AnimatedShortScript) -> tuple[str, Optional[str], Optional[str]]:
-        """Upload to YouTube strictly as PRIVATE and verify with API."""
+    def upload_video(
+        self,
+        video_res: AnimatedVideoResult,
+        script: AnimatedShortScript,
+        privacy_status: str = "public",
+    ) -> tuple[str, Optional[str], Optional[str]]:
+        """Upload to YouTube with specified privacy status ('public' or 'private') and verify with API."""
         if not video_res.quality_passed or not video_res.motion_verified:
             return "SKIPPED_QUALITY_FAILED", None, None
 
@@ -291,7 +296,11 @@ class AnimationPipeline:
             if not oauth_mgr.token_path.is_file():
                 return "SKIPPED_NO_OAUTH", None, None
 
-            pub_cfg = PublishingConfig(enabled=True, enforce_private=True)
+            pub_cfg = PublishingConfig(
+                enabled=True,
+                enforce_private=(privacy_status == "private"),
+                default_privacy=privacy_status,
+            )
             publisher = YouTubePublisher(pub_cfg, oauth_manager=oauth_mgr)
 
             desc = (
@@ -307,7 +316,7 @@ class AnimationPipeline:
                 title=f"{script.title[:90]} #shorts",
                 description=desc,
                 tags=script.tags + ["shorts", "animation", "cartoons"],
-                privacy_status="private",
+                privacy_status=privacy_status,
             )
 
             vid_id = str(upload_receipt.get("video_id") or upload_receipt.get("id") or "")
@@ -319,18 +328,14 @@ class AnimationPipeline:
                 except Exception:
                     pass
 
-            if priv and str(priv).lower() != "private":
-                log.critical("SECURITY VIOLATION: Upload response was not private! %s", priv)
-                return "SECURITY_ERROR", vid_id, None
-
             url = f"https://youtu.be/{vid_id}"
-            video_res.youtube_status = "UPLOADED_PRIVATE"
+            video_res.youtube_status = f"UPLOADED_{privacy_status.upper()}"
             video_res.youtube_video_id = vid_id
             video_res.youtube_url = url
             if script.script_id not in self.batch_state["uploaded"]:
                 self.batch_state["uploaded"].append(script.script_id)
             self._save_batch_state()
-            return "UPLOADED_PRIVATE", vid_id, url
+            return f"UPLOADED_{privacy_status.upper()}", vid_id, url
 
         except Exception as exc:
             err_str = str(exc)
@@ -340,10 +345,14 @@ class AnimationPipeline:
             log.error("Upload failed for %s: %s", script.script_id, exc)
             return f"FAILED: {err_str[:100]}", None, None
 
+    # Alias for backward compatibility
+    upload_private_video = upload_video
+
     def run_batch(
         self,
         count: int = 25,
         upload_private: bool = False,
+        upload_public: bool = False,
         sample_only: bool = False,
     ) -> list[AnimatedVideoResult]:
         """Process batch of up to 25 animated videos."""
@@ -356,12 +365,14 @@ class AnimationPipeline:
         results: list[AnimatedVideoResult] = []
         log.info("Starting animation pipeline for %d videos (sample_only=%s)...", len(scripts), sample_only)
 
+        target_privacy = "public" if upload_public else ("private" if upload_private else None)
+
         for idx, sc in enumerate(scripts):
             log.info("[%d/%d] Processing animated short: %s (%s)...", idx + 1, len(scripts), sc.title, sc.script_id)
             res = self.render_single_video(sc)
 
-            if upload_private and res.quality_passed:
-                status, vid_id, url = self.upload_private_video(res, sc)
+            if target_privacy and res.quality_passed:
+                status, vid_id, url = self.upload_video(res, sc, privacy_status=target_privacy)
                 log.info("Upload status for %s: %s (id=%s, url=%s)", sc.script_id, status, vid_id, url)
 
             results.append(res)

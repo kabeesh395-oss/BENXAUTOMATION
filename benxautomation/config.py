@@ -38,11 +38,12 @@ class RenderingConfig(BaseModel):
 
 
 class PublishingConfig(BaseModel):
-    """YouTube publishing settings — disabled by default."""
+    """YouTube publishing settings."""
     enabled: bool = False
     youtube_client_secret_path: Optional[str] = None
-    enforce_private: bool = True  # Strict safeguard: only 'private' uploads allowed during acceptance testing
-    auto_upload_private: bool = False  # Automatically upload verified videos as private
+    enforce_private: bool = False  # Set to True only when strictly enforcing private-only testing
+    default_privacy: str = "public"  # "public", "private", "unlisted"
+    auto_upload_private: bool = False  # Automatically upload verified videos
     upload_ledger_path: Optional[str] = None
 
 
