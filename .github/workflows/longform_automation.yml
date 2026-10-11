@@ -86,20 +86,26 @@ jobs:
       - name: Run Video Pipeline
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INPUT_TOPIC: ${{ github.event.inputs.topic }}
+          INPUT_DURATION: ${{ github.event.inputs.duration_seconds }}
+          INPUT_FORMAT: ${{ github.event.inputs.format }}
+          INPUT_MODE: ${{ github.event.inputs.mode }}
         run: |
-          EXTRA_FLAGS=""
-          TOPIC="${{ github.event.inputs.topic || '5 Surprising Mysteries of the Deep Sea' }}"
-          DUR="${{ github.event.inputs.duration_seconds || '60' }}"
-          FORMAT="${{ github.event.inputs.format || 'both' }}"
-          
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.mode }}" = "dry_run" ]; then
-              EXTRA_FLAGS="--dry-run"
-            fi
+          TOPIC="${INPUT_TOPIC:-5 Surprising Mysteries of the Deep Sea}"
+          DUR="${INPUT_DURATION:-60}"
+          FORMAT="${INPUT_FORMAT:-both}"
+          MODE="${INPUT_MODE:-dry_run}"
+
+          # Resolve provider safely
+          PROVIDER="auto"
+          if [ -z "$GEMINI_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
+            echo "Notice: Neither GEMINI_API_KEY nor OPENAI_API_KEY configured in secrets. Using offline fallback provider."
+            PROVIDER="fallback"
           fi
 
-          echo "Generating video: Topic='$TOPIC', Duration=$DUR, Format=$FORMAT"
-          python -m benxautomation.main --topic "$TOPIC" --duration "$DUR" --format "$FORMAT" $EXTRA_FLAGS
+          echo "Generating video: Topic='$TOPIC', Duration=$DUR, Format=$FORMAT, Mode=$MODE, Provider=$PROVIDER"
+          python -m benxautomation.main --topic "$TOPIC" --duration "$DUR" --format "$FORMAT" --mode "$MODE" --provider "$PROVIDER"
 
       - name: Upload Generated Video Artifacts
         uses: actions/upload-artifact@v4
@@ -107,13 +113,14 @@ jobs:
         with:
           name: video-output-${{ github.run_number }}
           path: |
-            output/*_longform.mp4
-            output/*_shorts.mp4
-            output/*_narration.mp3
-            output/*_subtitles.srt
-            output/*_quality_report.json
-            output/*_scene_plan.json
-            output/*_script.json
+            output/**/*.mp4
+            output/**/*.mp3
+            output/**/*.srt
+            output/**/*.json
+            output/*.mp4
+            output/*.mp3
+            output/*.srt
+            output/*.json
           retention-days: 14
 
       - name: Post-Run Failure Notification

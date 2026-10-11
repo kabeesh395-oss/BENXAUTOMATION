@@ -801,6 +801,121 @@ class YouTubePublisher:
         )
         return verified
 
+    def upload_private_verified_with_quality_gate(
+        self,
+        video_path: Path,
+        *,
+        title: str,
+        description: str = "",
+        tags: Optional[list[str]] = None,
+        is_short: bool = False,
+        min_duration_seconds: float = 1.0,
+        allow_duplicate: bool = False,
+        error_report_path: Optional[Path] = None,
+    ) -> dict[str, Any]:
+        """Perform essential runtime quality verification and upload strictly as private.
+
+        1. Essential runtime quality checks:
+           - Non-empty file (size > 0)
+           - Valid video & audio streams
+           - Valid duration (>= min_duration_seconds)
+           - 9:16 portrait dimensions for Shorts (aspect ratio <= 0.60)
+           - Successful FFmpeg full decode pass
+        2. If checks fail:
+           - Do NOT upload that file.
+           - Save the rejection report.
+           - Return rejection status without raising, allowing other valid outputs to proceed.
+        3. If checks pass:
+           - Upload strictly as private (privacy_status="private") via resumable upload.
+           - Verify that the YouTube API confirms privacy is "private" (no public/unlisted fallback).
+           - Return verified upload details.
+        """
+        from benxautomation.renderer.media_validator import MediaValidator
+
+        v_path = Path(video_path)
+        validator = MediaValidator()
+        passed, issues, meta = validator.validate_for_private_upload(
+            v_path,
+            is_short=is_short,
+            min_duration_seconds=min_duration_seconds,
+        )
+
+        if not passed:
+            log.warning("Upload blocked by quality gate for %s: %s", v_path.name, issues)
+            rejection_data = {
+                "file": str(v_path),
+                "is_short": is_short,
+                "passed": False,
+                "issues": issues,
+                "status": "QUALITY_CHECK_FAILED",
+                "file_size_bytes": v_path.stat().st_size if v_path.is_file() else 0,
+            }
+            if error_report_path:
+                rep_p = Path(error_report_path)
+            else:
+                rep_p = v_path.parent / f"{v_path.stem}_upload_rejection.json"
+            try:
+                rep_p.parent.mkdir(parents=True, exist_ok=True)
+                rep_p.write_text(json.dumps(rejection_data, indent=2, ensure_ascii=False), encoding="utf-8")
+            except Exception as e:
+                log.warning("Could not write upload rejection report: %s", e)
+
+            return {
+                "status": "QUALITY_CHECK_FAILED",
+                "uploaded": False,
+                "video_id": None,
+                "issues": issues,
+                "rejection_report": str(rep_p),
+            }
+
+        # Run private upload
+        upload_res = self.upload(
+            video_path=v_path,
+            title=title,
+            description=description,
+            tags=tags,
+            privacy_status="private",
+            allow_duplicate=allow_duplicate,
+        )
+        video_id = upload_res.get("id") or upload_res.get("video_id")
+        if not video_id:
+            raise PublishingDisabledError(f"Upload completed but no video ID returned: {upload_res}")
+
+        # Strict verification of returned privacy status via YouTube Data API
+        verified = self.verify_video(video_id)
+        returned_privacy = (verified.get("privacy_status") or "").lower()
+        if returned_privacy != "private":
+            raise PublishingDisabledError(
+                f"CRITICAL SAFETY VIOLATION: Uploaded video {video_id} privacy is '{returned_privacy}', "
+                f"NOT 'private'. Aborting immediately without public fallback."
+            )
+
+        receipt_data = {
+            "file": str(v_path),
+            "video_id": video_id,
+            "url": verified["url"],
+            "title": verified["title"],
+            "privacy_status": verified["privacy_status"],
+            "status": "UPLOADED_PRIVATE",
+            "uploaded": True,
+        }
+        receipt_path = v_path.parent / f"{v_path.stem}_upload_receipt.json"
+        try:
+            receipt_path.write_text(json.dumps(receipt_data, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception as e:
+            log.debug("Could not write upload receipt: %s", e)
+
+        return {
+            "status": "UPLOADED_PRIVATE",
+            "uploaded": True,
+            "video_id": video_id,
+            "url": verified["url"],
+            "privacy_status": verified["privacy_status"],
+            "title": verified["title"],
+            "receipt_path": str(receipt_path),
+        }
+
+
 
 def _build_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(

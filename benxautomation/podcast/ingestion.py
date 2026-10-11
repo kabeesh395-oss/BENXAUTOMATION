@@ -154,20 +154,22 @@ class PodcastIngester:
 
         except yt_dlp.utils.DownloadError as exc:
             err_msg = str(exc)
+            hint = " If you have permission or licensed access to this footage, supply the authorized local file directly via --source 'path/to/video.mp4'."
             if "DRM" in err_msg or "protected" in err_msg.lower():
                 raise PodcastAccessError(
-                    f"DRM protection detected for URL '{url}'. Cannot legally or technically access protected content."
+                    f"DRM protection detected for URL '{url}'. Cannot bypass access controls or DRM protections.{hint}"
                 ) from exc
             if "Private video" in err_msg or "Sign in" in err_msg:
                 raise PodcastAccessError(
-                    f"Video access denied (Private or Restricted). Platform access controls respected: {err_msg}"
+                    f"Video access denied (Private or Restricted). Platform access controls respected: {err_msg}.{hint}"
                 ) from exc
             if "Geo" in err_msg or "country" in err_msg.lower():
                 raise PodcastAccessError(
-                    f"Geographic access restriction detected for URL '{url}'."
+                    f"Geographic access restriction detected for URL '{url}'.{hint}"
                 ) from exc
-            raise PodcastAccessError(f"Failed to access video stream: {err_msg}") from exc
+            raise PodcastAccessError(f"Failed to access video stream: {err_msg}.{hint}") from exc
         except Exception as exc:
             if isinstance(exc, PodcastAccessError):
                 raise
-            raise PodcastAccessError(f"Unexpected error accessing video: {exc}") from exc
+            hint = " If you have permission or licensed access to this footage, supply the authorized local file directly via --source 'path/to/video.mp4'."
+            raise PodcastAccessError(f"Unexpected error accessing video: {exc}.{hint}") from exc

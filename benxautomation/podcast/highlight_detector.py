@@ -46,18 +46,20 @@ class HighlightDetector:
         if not transcript.segments:
             raise HighlightDetectionError("Cannot detect highlights from an empty transcript.")
 
+        target_count = max(1, min(max_candidates, 10))
+
         # Try Gemini API if available
         if self.api_key:
             try:
-                candidates = self._detect_with_gemini(transcript, max_candidates=max_candidates)
+                candidates = self._detect_with_gemini(transcript, max_candidates=target_count)
                 if candidates:
-                    return self._filter_and_deduplicate(candidates, transcript)
+                    return self._filter_and_deduplicate(candidates, transcript, max_candidates=target_count)
             except Exception as exc:
                 log.warning("Gemini highlight detection failed (%s), falling back to heuristic detector", exc)
 
         # Fallback to heuristic context windowing
-        candidates = self._detect_heuristic(transcript, max_candidates=max_candidates)
-        return self._filter_and_deduplicate(candidates, transcript)
+        candidates = self._detect_heuristic(transcript, max_candidates=target_count)
+        return self._filter_and_deduplicate(candidates, transcript, max_candidates=target_count)
 
     def _detect_with_gemini(
         self,
@@ -197,11 +199,11 @@ class HighlightDetector:
                     else:
                         break
                 end_idx += 1
-            start_idx = max(start_idx + 1, end_idx)
+            start_idx += 1
 
         # Sort by score descending
         candidates.sort(key=lambda c: c.score, reverse=True)
-        return candidates[:max_candidates]
+        return candidates
 
     def _get_text_for_range(self, transcript: PodcastTranscript, start: float, end: float) -> str:
         """Collect transcript text between start and end seconds."""
@@ -215,12 +217,16 @@ class HighlightDetector:
         self,
         candidates: list[HighlightCandidate],
         transcript: PodcastTranscript,
+        *,
+        max_candidates: int = 10,
     ) -> list[HighlightCandidate]:
         """Enforce strict duration boundaries and non-overlapping clip guarantee."""
+        # Sort by engagement score descending to prioritize highest quality moments
+        candidates_sorted = sorted(candidates, key=lambda c: c.score, reverse=True)
         valid: list[HighlightCandidate] = []
         max_time = transcript.total_duration or 999999.0
 
-        for cand in candidates:
+        for cand in candidates_sorted:
             # Bound checks
             cand.start_seconds = max(0.0, cand.start_seconds)
             cand.end_seconds = min(max_time, cand.end_seconds)
@@ -229,18 +235,20 @@ class HighlightDetector:
             if cand.duration < self.min_clip_duration or cand.duration > self.max_clip_duration:
                 continue
 
-            # Overlap check (> 25% overlap with any previously accepted candidate)
+            # Overlap check (> 20% overlap with any previously accepted candidate)
             has_overlap = False
             for accepted in valid:
                 overlap_start = max(cand.start_seconds, accepted.start_seconds)
                 overlap_end = min(cand.end_seconds, accepted.end_seconds)
                 overlap_dur = max(0.0, overlap_end - overlap_start)
-                if overlap_dur > 0.25 * min(cand.duration, accepted.duration):
+                if overlap_dur > 0.20 * min(cand.duration, accepted.duration):
                     has_overlap = True
                     break
 
             if not has_overlap:
                 valid.append(cand)
+                if len(valid) >= max_candidates:
+                    break
 
         if not valid and transcript.segments:
             # Fallback single safe window from start
@@ -262,4 +270,79 @@ class HighlightDetector:
                     )
                 )
 
-        return valid
+        # Sort chosen clips chronologically and assign sequential clip_id
+        valid.sort(key=lambda c: c.start_seconds)
+        for i, c in enumerate(valid, start=1):
+            c.clip_id = f"clip_{i}"
+
+        return valid[:max_candidates]
+
+    def detect_silence_intervals(
+        self,
+        video_path: Path,
+        *,
+        noise_threshold_db: float = -35.0,
+        min_duration: float = 0.4,
+    ) -> list[tuple[float, float]]:
+        """Detect silence intervals (start_s, end_s) using FFmpeg silencedetect."""
+        if not video_path.is_file():
+            return []
+        import subprocess
+        from benxautomation.renderer.ffmpeg_utils import find_ffmpeg
+        cmd = [
+            find_ffmpeg(),
+            "-i", str(video_path),
+            "-af", f"silencedetect=noise={noise_threshold_db}dB:d={min_duration}",
+            "-f", "null", "-",
+        ]
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
+            output = res.stderr
+            silences: list[tuple[float, float]] = []
+            curr_start = None
+            for line in output.splitlines():
+                if "silence_start:" in line:
+                    match = re.search(r"silence_start:\s*([\d\.]+)", line)
+                    if match:
+                        curr_start = float(match.group(1))
+                elif "silence_end:" in line and curr_start is not None:
+                    match = re.search(r"silence_end:\s*([\d\.]+)", line)
+                    if match:
+                        curr_end = float(match.group(1))
+                        silences.append((curr_start, curr_end))
+                        curr_start = None
+            return silences
+        except Exception as exc:
+            log.debug("Silence detection skipped (%s)", exc)
+            return []
+
+    def detect_scene_changes(
+        self,
+        video_path: Path,
+        *,
+        scene_threshold: float = 0.35,
+    ) -> list[float]:
+        """Detect scene cut timestamps using FFmpeg select='gt(scene,...) filter."""
+        if not video_path.is_file():
+            return []
+        import subprocess
+        from benxautomation.renderer.ffmpeg_utils import find_ffmpeg
+        cmd = [
+            find_ffmpeg(),
+            "-i", str(video_path),
+            "-filter:v", f"select='gt(scene,{scene_threshold})',metadata=print:file=-",
+            "-f", "null", "-",
+        ]
+        try:
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=60)
+            output = res.stdout + res.stderr
+            cuts: list[float] = []
+            for line in output.splitlines():
+                if "pts_time:" in line:
+                    match = re.search(r"pts_time:\s*([\d\.]+)", line)
+                    if match:
+                        cuts.append(float(match.group(1)))
+            return cuts
+        except Exception as exc:
+            log.debug("Scene change detection skipped (%s)", exc)
+            return []

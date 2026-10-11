@@ -42,6 +42,7 @@ class PublishingConfig(BaseModel):
     enabled: bool = False
     youtube_client_secret_path: Optional[str] = None
     enforce_private: bool = True  # Strict safeguard: only 'private' uploads allowed during acceptance testing
+    auto_upload_private: bool = False  # Automatically upload verified videos as private
     upload_ledger_path: Optional[str] = None
 
 

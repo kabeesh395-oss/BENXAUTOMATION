@@ -45,6 +45,9 @@ class VideoReframer:
         subtitles_file: Optional[Path] = None,
         style: Optional[SubtitleStyle] = None,
         reframing_mode: Optional[str] = None,
+        remove_silence: bool = False,
+        bgm_file: Optional[Path] = None,
+        bgm_volume: float = 0.15,
     ) -> Path:
         """Render a vertical 9:16 short clip from source video."""
         if not source_video.is_file():
@@ -60,10 +63,11 @@ class VideoReframer:
 
         output_mp4.parent.mkdir(parents=True, exist_ok=True)
 
-        # 1. Inspect source streams for video presence and aspect ratio
+        # 1. Inspect source streams for video & audio presence
         meta = probe_file(source_video)
         streams = meta.get("streams", [])
         video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+        audio_stream = next((s for s in streams if s.get("codec_type") == "audio"), None)
 
         input_args: list[str] = []
         if video_stream:
@@ -90,13 +94,8 @@ class VideoReframer:
                     f"[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1,fps={fps}[vbase]"
                 )
             input_args = ["-ss", f"{start_s:.3f}", "-t", f"{dur_s:.3f}", "-i", str(source_video)]
-            map_a = "0:a?"
         else:
             # Audio-only source: construct ambient visual card background
-            filter_v = (
-                f"color=c=0x0b0f19:s={w}x{h}:r={fps}:d={dur_s:.3f}[bg];"
-                f"[bg]drawbox=x=80:y=200:w={w-160}:h={h-400}:color=0x1e293b@0.8:t=fill[vbase]"
-            )
             input_args = [
                 "-ss", f"{start_s:.3f}", "-t", f"{dur_s:.3f}", "-i", str(source_video),
                 "-f", "lavfi", "-t", f"{dur_s:.3f}", "-i", f"color=c=0x0b0f19:s={w}x{h}:r={fps}"
@@ -104,9 +103,43 @@ class VideoReframer:
             filter_v = (
                 f"[1:v]drawbox=x=80:y=200:w={w-160}:h={h-400}:color=0x1e293b@0.8:t=fill[vbase]"
             )
-            map_a = "0:a?"
 
-        # Subtitle burning stage
+        # 2. Audio filter processing (silence removal, BGM mixing, speech clarity)
+        audio_filters = []
+        map_a = "0:a?"
+        bgm_input_idx: Optional[int] = None
+
+        if bgm_file and Path(bgm_file).is_file():
+            bgm_input_idx = len(input_args) // 2  # next input index
+            input_args.extend(["-stream_loop", "-1", "-i", str(bgm_file)])
+
+        if audio_stream:
+            curr_a = "[0:a]"
+            if remove_silence:
+                audio_filters.append(f"{curr_a}silenceremove=stop_periods=-1:stop_duration=0.4:stop_threshold=-40dB[aclean]")
+                curr_a = "[aclean]"
+
+            if bgm_input_idx is not None:
+                audio_filters.append(
+                    f"[{bgm_input_idx}:a]volume={bgm_volume:.3f}[bgm_duck];"
+                    f"{curr_a}[bgm_duck]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+                )
+                map_a = "[aout]"
+            elif remove_silence:
+                map_a = "[aclean]"
+        else:
+            # Fallback audio: generate clean silent stereo stream matching clip duration
+            audio_filters.append(f"anullsrc=channel_layout=stereo:sample_rate=44100:d={dur_s:.3f}[asilent]")
+            if bgm_input_idx is not None:
+                audio_filters.append(
+                    f"[{bgm_input_idx}:a]volume={bgm_volume:.3f}[bgm_duck];"
+                    f"[asilent][bgm_duck]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+                )
+                map_a = "[aout]"
+            else:
+                map_a = "[asilent]"
+
+        # 3. Subtitle burning stage
         final_video_label = "[vbase]"
         if subtitles_file and subtitles_file.is_file():
             try:
@@ -116,20 +149,25 @@ class VideoReframer:
                     sub_filter = f"{final_video_label}ass='{esc_path}'[vout]"
                 else:
                     sub_filter = f"{final_video_label}subtitles='{esc_path}'[vout]"
-                full_filter = f"{filter_v};{sub_filter}"
+                full_video_filter = f"{filter_v};{sub_filter}"
                 map_v = "[vout]"
             except Exception as e:
                 log.warning("Could not build subtitle filter (%s); rendering clean video", e)
-                full_filter = filter_v
+                full_video_filter = filter_v
                 map_v = "[vbase]"
         else:
-            full_filter = filter_v
+            full_video_filter = filter_v
             map_v = "[vbase]"
+
+        all_filters = [full_video_filter]
+        if audio_filters:
+            all_filters.extend(audio_filters)
+        combined_filter = ";".join(all_filters)
 
         args = (
             input_args
             + [
-                "-filter_complex", full_filter,
+                "-filter_complex", combined_filter,
                 "-map", map_v,
                 "-map", map_a,
                 "-c:v", "libx264",
@@ -138,6 +176,7 @@ class VideoReframer:
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 "-b:a", "192k",
+                "-t", f"{dur_s:.3f}",
                 str(output_mp4),
             ]
         )
