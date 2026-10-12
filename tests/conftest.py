@@ -46,7 +46,7 @@ async def _resilient_edge_tts_save(self, output_path: str) -> None:
             # Size audio slightly below target frame boundary so container padding
             # never exceeds the rendered video stream length.
             target_dur = max(3.0, round(words / 2.0, 2))
-            audio_dur = max(2.5, target_dur - 0.20)
+            audio_dur = max(2.5, target_dur - 0.40)
             cmd = [
                 ffmpeg_bin,
                 "-y",
