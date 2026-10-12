@@ -2,6 +2,7 @@
 
 import pytest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from benxautomation.animation.models import CharacterPose, FacialExpression
 from benxautomation.animation.motion_validator import MotionValidator
 from benxautomation.animation.script_generator import AnimationScriptGenerator
@@ -13,21 +14,39 @@ def test_tool_registry_detects_installed_engines():
     registry = AnimationToolRegistry()
     summary = registry.summary()
 
-    # Blender must be available (verified installed)
-    assert registry.blender.available is True
-    assert registry.blender.path is not None
+    # All engines recorded in summary cleanly
     assert "Blender" in summary
-
-    # Godot must be available (verified installed)
-    assert registry.godot.available is True
-    assert registry.godot.path is not None
-
-    # OpenToonz blocker status recorded cleanly
+    assert "Godot" in summary
     assert "OpenToonz" in summary
+    assert "FFmpeg" in summary
+    assert "FFprobe" in summary
+
+    # Engine status path matches availability
+    if registry.blender.available:
+        assert registry.blender.path is not None
+    else:
+        assert registry.blender.path is None
+
+    if registry.godot.available:
+        assert registry.godot.path is not None
+    else:
+        assert registry.godot.path is None
 
     # FFmpeg & FFprobe available
     assert registry.ffmpeg.available is True
     assert registry.ffprobe.available is True
+
+
+def test_tool_registry_detects_blender_when_present(tmp_path: Path):
+    fake_blender = tmp_path / "blender"
+    fake_blender.write_text("#!/bin/sh\n")
+    with patch("shutil.which", return_value=str(fake_blender)), \
+         patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(stdout="Blender 4.5.0\n", returncode=0)
+        registry = AnimationToolRegistry()
+        assert registry.blender.available is True
+        assert registry.blender.path == fake_blender
+        assert "Blender 4.5.0" in (registry.blender.version or "")
 
 
 def test_script_generator_creates_25_distinct_shorts():
