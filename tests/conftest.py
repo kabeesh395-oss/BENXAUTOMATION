@@ -16,6 +16,15 @@ from benxautomation.renderer.ffmpeg_utils import ffmpeg_is_available, ffprobe_is
 # ── Cloud CI Resilience: Handle Bing 403 on Datacenter Runners ─────
 
 _real_edge_tts_save = edge_tts.Communicate.save
+_real_edge_tts_init = edge_tts.Communicate.__init__
+
+
+def _benx_communicate_init(self, text: str, *args, **kwargs) -> None:
+    self._benx_text = text
+    _real_edge_tts_init(self, text, *args, **kwargs)
+
+
+edge_tts.Communicate.__init__ = _benx_communicate_init
 
 
 async def _resilient_edge_tts_save(self, output_path: str) -> None:
@@ -31,9 +40,10 @@ async def _resilient_edge_tts_save(self, output_path: str) -> None:
             from benxautomation.renderer.ffmpeg_utils import find_ffmpeg
 
             ffmpeg_bin = find_ffmpeg()
-            text = getattr(self, "text", "") or ""
-            words = len(text.split()) if text else 5
-            duration = max(2.5, min(30.0, words / 2.2))
+            text = getattr(self, "_benx_text", "") or ""
+            words = len(text.split()) if text else 10
+            # Natural speech is ~130-150 words/min (approx 2.2 words/sec)
+            duration = max(3.0, round(words / 2.0, 2))
             cmd = [
                 ffmpeg_bin,
                 "-y",
