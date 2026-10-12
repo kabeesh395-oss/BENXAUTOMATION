@@ -38,5 +38,8 @@ jobs:
           python -c "import requests; print(requests.version)"
           python -c "import requests; print(requests.__version__)"
 
+      - name: Run Ruff Linter
+        run: ruff check .
+
       - name: Run tests
         run: pytest --tb=short -v

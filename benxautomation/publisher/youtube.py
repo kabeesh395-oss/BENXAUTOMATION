@@ -1146,7 +1146,7 @@ def main() -> None:
 
         elif args.command == "verify-channel":
             chan = mgr.verify_channel()
-            print(f"\n[CHANNEL VERIFIED]")
+            print("\n[CHANNEL VERIFIED]")
             print(f"Title:      {chan.title}")
             print(f"Channel ID: {chan.channel_id}")
             if chan.custom_url:

@@ -15,6 +15,20 @@ from benxautomation.animation.pipeline import AnimationPipeline
 from benxautomation.animation.script_generator import AnimationScriptGenerator
 from benxautomation.animation.tools import AnimationToolRegistry
 
+from benxautomation.animation.mascot_assets import MascotAssetBuilder
+from benxautomation.animation.mascot_engine import (
+    MascotAnimationEngine,
+    MascotRenderConfig,
+    MascotRig,
+    MascotScene,
+)
+from benxautomation.animation.story_pipeline import (
+    LocalStoryScriptCatalog,
+    MascotStoryResult,
+    StoryAnimationPipeline,
+    StoryScript,
+)
+
 __all__ = [
     "AnimationPipeline",
     "AnimationToolRegistry",
@@ -28,4 +42,13 @@ __all__ = [
     "FacialExpression",
     "CameraMotion",
     "SceneTheme",
+    "MascotAssetBuilder",
+    "MascotAnimationEngine",
+    "MascotRenderConfig",
+    "MascotRig",
+    "MascotScene",
+    "StoryAnimationPipeline",
+    "StoryScript",
+    "MascotStoryResult",
+    "LocalStoryScriptCatalog",
 ]

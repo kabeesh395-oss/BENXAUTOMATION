@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Optional
 
 from benxautomation.config import AppConfig, load_config
-from benxautomation.errors import BenxError, ScriptGenerationError
+from benxautomation.errors import BenxError, PublishingDisabledError, ScriptGenerationError
 from benxautomation.logger import get_logger
 from benxautomation.pipeline import PipelineResult, VideoPipeline
 

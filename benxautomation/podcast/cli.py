@@ -75,10 +75,10 @@ def main(argv: list[str] | None = None) -> int:
         from benxautomation.podcast.server import app
         host = getattr(args, "host", "127.0.0.1")
         port = getattr(args, "port", 8000)
-        print(f"\n=======================================================")
-        print(f"BENX Podcast-to-Shorts Studio Dashboard")
+        print("\n=======================================================")
+        print("BENX Podcast-to-Shorts Studio Dashboard")
         print(f"Open browser at: http://{host}:{port}")
-        print(f"=======================================================\n")
+        print("=======================================================\n")
         uvicorn.run(app, host=host, port=port)
         return 0
 
@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"      Segments extracted: {len(transcript.segments)}")
 
         # 3. Detect highlights
-        print(f"\n[3/6] Detecting high-retention highlights...")
+        print("\n[3/6] Detecting high-retention highlights...")
         pipeline.config.min_clip_duration = args.min_duration
         pipeline.config.max_clip_duration = args.max_duration
         candidates = pipeline.detect_highlights(transcript, max_candidates=args.max_clips)
@@ -190,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.add:
             sources_to_add.extend(args.add)
         if args.file and Path(args.file).is_file():
-            lines = [l.strip() for l in Path(args.file).read_text(encoding="utf-8").splitlines() if l.strip()]
+            lines = [line.strip() for line in Path(args.file).read_text(encoding="utf-8").splitlines() if line.strip()]
             sources_to_add.extend(lines)
 
         for src in sources_to_add:

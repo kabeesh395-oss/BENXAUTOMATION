@@ -161,7 +161,7 @@ class AnimationPipeline:
         # 3. Mux frames + audio with FFmpeg
         log.info("Muxing video, audio, and subtitles for %s...", script.script_id)
         frame_input = str(frames_dir.resolve() / "frame_%04d.png")
-        
+
         # Windows-safe path escaping for ffmpeg subtitle filter
         srt_escaped = str(srt_path.resolve()).replace("\\", "/").replace(":", "\\:")
         subtitle_filter = (

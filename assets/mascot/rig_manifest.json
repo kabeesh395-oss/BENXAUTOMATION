@@ -1,0 +1,32 @@
+{
+  "character": "BENX",
+  "version": "2.0.0",
+  "license": "original_creator_owned",
+  "total_layers": 24,
+  "layers": {
+    "head_base": "head_base.png",
+    "visor_plate": "visor_plate.png",
+    "eyes_happy": "eyes_happy.png",
+    "eyes_surprised": "eyes_surprised.png",
+    "eyes_confused": "eyes_confused.png",
+    "eyes_serious": "eyes_serious.png",
+    "eyes_excited": "eyes_excited.png",
+    "eyes_sad": "eyes_sad.png",
+    "eyes_blink": "eyes_blink.png",
+    "mouth_rest": "mouth_rest.png",
+    "mouth_a": "mouth_a.png",
+    "mouth_o": "mouth_o.png",
+    "mouth_e": "mouth_e.png",
+    "mouth_wide": "mouth_wide.png",
+    "torso_front": "torso_front.png",
+    "torso_three_quarter_left": "torso_three_quarter_left.png",
+    "torso_three_quarter_right": "torso_three_quarter_right.png",
+    "arms_idle": "arms_idle.png",
+    "arms_gesture": "arms_gesture.png",
+    "arms_pointing_right": "arms_pointing_right.png",
+    "arms_pointing_up": "arms_pointing_up.png",
+    "arms_thinking_chin": "arms_thinking_chin.png",
+    "arms_shrug": "arms_shrug.png",
+    "arms_cheer": "arms_cheer.png"
+  }
+}

@@ -109,13 +109,13 @@ class PodcastTranscriber:
 
         idx = 1
         for block in blocks:
-            lines = [l.strip() for l in block.splitlines() if l.strip()]
+            lines = [line.strip() for line in block.splitlines() if line.strip()]
             if not lines:
                 continue
             # Look for line with '-->'
             time_line_idx = -1
-            for i, l in enumerate(lines):
-                if "-->" in l:
+            for i, line_text in enumerate(lines):
+                if "-->" in line_text:
                     time_line_idx = i
                     break
             if time_line_idx == -1:

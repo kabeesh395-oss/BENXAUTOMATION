@@ -230,7 +230,6 @@ class ScenePlanner:
             is_multi = len(available) > 1 and len(scenes) > 1
 
         # Calculate durations proportionally at given FPS to ensure video covers full audio
-        import math
         total_frames = max(1, math.ceil(total_audio_duration * fps))
         target_video_duration = total_frames / fps
 

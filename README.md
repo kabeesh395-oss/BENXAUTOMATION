@@ -1,208 +1,220 @@
-# BENXAUTOMATION
-Modular AI-powered YouTube automation for Shorts, long-form videos, multilingual dubbing, thumbnails, metadata, copyright tracking and scheduled publishing.
+# BENXAUTOMATION V2
+
+> Production-Grade AI Code Review, YouTube Podcast-to-Shorts Repurposing, and Original BENX 2D Mascot Animation Engine.
+
+[![CI — Tests](https://github.com/kabeesh395-oss/BENXAUTOMATION/actions/workflows/ci.yml/badge.svg)](https://github.com/kabeesh395-oss/BENXAUTOMATION/actions/workflows/ci.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
-## Overview
+## What is BENXAUTOMATION V2?
 
-BENXAUTOMATION is a modular, extensible framework for automated YouTube video creation. It handles the complete lifecycle of production-grade video generation:
-- **Configuration Validation** (Pydantic v2 schemas)
-- **Asset License Manifest Verification** (`cc0`, `mit`, `apache-2.0`, `cc-by-4.0`, etc.)
-- **AI Video Generation via MoneyPrinterTurbo Adapter** (Supports CLI subprocess invocation and FastAPI REST client)
-- **Neural Text-To-Speech (TTS)** (`edge-tts` engine generating real MP3 speech)
-- **Timed Subtitle Generation** (SRT generation and automatic FFmpeg subtitle burning)
-- **Pluggable Video Rendering** (Shorts 9:16 and Long-form 16:9 via FFmpeg with audio and subtitles)
-- **Media Validation** (`MediaValidator` inspecting streams, duration, dimensions, codecs, and playability)
-- **Persistent Job Queue & Worker Pool** (SQLite-backed persistent queue with restart recovery, retries, bounded worker pool, disk storage safeguards, and emergency stop)
-- **Official YouTube OAuth2 Publisher** (Full OAuth2 authorization flow, token exchange, refresh, channel verification, and restricted visibility enforcement)
+BENXAUTOMATION V2 is an open-source, modular automation suite engineered for high-retention video production and automated GitHub workflows:
+
+1. **BENX Original 2D Mascot Animation Engine**:
+   - Original, copyright-free character rig (`assets/mascot/`): helmet visor, dynamic LED eyes (6 expressions + blinks), lip-sync visemes (REST, A, O, E, WIDE), 7 arm gestures, and front/three-quarter body views.
+   - Genuine 2D frame-by-frame motion: harmonic breathing cycles, automatic natural eye blinks, speech viseme sync, camera pan/dolly dynamics, and particle drift.
+   - Supports both vertical 9:16 Shorts (`1080x1920`) and horizontal 16:9 (`1920x1080`) videos.
+   - Built-in mathematical `MotionValidator` ensuring high inter-frame pixel deltas (averages > 2.0% delta across scenes, rejecting static slideshows).
+2. **Story-to-Animation Pipeline**:
+   - Converts story text or structured scripts into multi-scene 2D animated videos with synchronized neural voice narration (`edge-tts`), burned subtitles (`.srt`/`.vtt`), thumbnails, and metadata receipts.
+   - Offline deterministic story catalog (`LocalStoryScriptCatalog`) ensuring zero crashes when external AI providers are offline.
+3. **Podcast & Livestream-to-Shorts Engine**:
+   - Repurposes local recordings and licensed YouTube streams into vertical 1080x1920 Shorts.
+   - Timed transcription, highlight detection, face-tracking/crop, burned captions, and per-clip metadata.
+4. **CodeRabbit AI Integration**:
+   - Configured with official Schema v2 (`.coderabbit.yaml`) for automated GitHub Pull Request reviews.
+   - Specialized review prompts for Python reliability, FFmpeg safety, secret scanning, and test coverage with noisy style nitpicks suppressed.
+5. **Quality & Maintainability Tooling**:
+   - Fast Python linting via **Ruff** (`ruff check .`).
+   - GitHub Actions CI matrix for Python 3.11 and 3.12 with 257 unit & integration tests passing.
+   - Human-in-the-loop review gating before merging or publishing.
 
 ---
 
-## Project Structure
+## Architecture Overview
 
 ```
 BENXAUTOMATION/
+├── .coderabbit.yaml               # CodeRabbit AI PR review configuration (Schema v2)
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                    # Automated pytest execution on GitHub Actions
+│       ├── ci.yml                 # Automated Ruff linting & pytest matrix (3.11 & 3.12)
+│       ├── podcast_shorts_automation.yml # Scheduled Shorts repurposing
+│       └── longform_automation.yml       # Scheduled long-form automation
 ├── assets/
-│   ├── sample_card.png           # Licensed base asset
-│   └── license_manifest.yaml     # Asset license declaration
+│   ├── mascot/                    # Reusable BENX 2D Mascot rig layers (24 PNG layers)
+│   │   ├── character_spec.json    # Character design specifications & color palette
+│   │   ├── rig_manifest.json      # Layer manifest with license verification
+│   │   ├── head_base.png, visor_plate.png
+│   │   ├── eyes_*.png (happy, surprised, confused, serious, excited, sad, blink)
+│   │   ├── mouth_*.png (rest, a, o, e, wide)
+│   │   ├── torso_*.png (front, three_quarter_left, three_quarter_right)
+│   │   └── arms_*.png (idle, gesture, pointing_up, pointing_right, thinking_chin, shrug, cheer)
+│   └── license_manifest.yaml      # Commercial rights manifest for graphic assets
 ├── benxautomation/
-│   ├── config.py                 # Pydantic configuration schemas & validation
-│   ├── logger.py                 # Structured JSON logging
-│   ├── errors.py                 # Custom exception hierarchy
-│   ├── asset_manifest.py         # License manifest parsing & verification
-│   ├── pipeline.py               # End-to-end rendering coordinator
-│   ├── main.py                   # CLI entrypoint
-│   ├── adapters/
-│   │   └── moneyprinter.py       # MoneyPrinterTurbo adapter (CLI + REST API)
-│   ├── tts/
-│   │   └── engine.py             # Neural Edge-TTS engine (audio synthesis)
-│   ├── subtitles/
-│   │   └── generator.py          # Timed subtitle (.srt) generator & parser
-│   ├── queue/
-│   │   ├── job_queue.py          # SQLite persistent queue with restart recovery
-│   │   ├── monitor.py            # Storage safeguard & emergency stop monitor
-│   │   └── worker.py             # Bounded parallel worker pool
-│   ├── renderer/
-│   │   ├── base.py               # Abstract RendererPlugin & RenderResult
-│   │   ├── ffmpeg_utils.py       # Subprocess wrapper & path resolution
-│   │   ├── shorts_plugin.py      # 9:16 portrait video rendering plugin
-│   │   ├── longform_plugin.py    # 16:9 landscape video rendering plugin
-│   │   └── media_validator.py    # Duration, dimensions, codecs & playability validator
+│   ├── animation/                 # Mascot 2D engine & story animation pipeline
+│   │   ├── mascot_assets.py       # Procedural anti-aliased character asset builder
+│   │   ├── mascot_engine.py       # Multi-scene frame compositing & FFmpeg video encoder
+│   │   ├── story_pipeline.py      # End-to-end story-to-animation workflow coordinator
+│   │   └── motion_validator.py    # Mathematical inter-frame pixel delta validator
+│   ├── podcast/                   # Podcast/livestream ingestion, transcription, & highlights
+│   ├── repurpose/                 # Vertical reframing, face-tracking, and subtitle burning
 │   ├── publisher/
-│   │   └── youtube.py            # YouTube OAuth2 publisher & safety guard
-│   └── i18n/
-│       └── registry.py           # Multilingual registry (20+ language support)
-├── tests/                        # Comprehensive test suite (72 passed unit & integration tests)
-├── config.example.yaml           # Example configuration without secrets
-├── pyproject.toml                 # Build setup, dependencies, pytest configuration
-├── requirements.txt               # Production and dev dependencies
-└── README.md                      # Project documentation
+│   │   └── youtube.py             # YouTube OAuth2 manager with strict PRIVATE upload gates
+│   └── tts/
+│       └── engine.py              # Neural Edge-TTS voiceover synthesizer
+├── docs/
+│   ├── BENX_MASCOT_DESIGN_SPEC.md # Full mascot character design specification
+│   ├── CODERABBIT_SETUP.md        # CodeRabbit installation & PR review workflow guide
+│   └── SWEEP_AI_EVALUATION.md     # Deprecation assessment of Sweep AI & alternatives
+├── scripts/
+│   └── render_mascot_sample.py    # Standalone script to render official mascot sample video
+├── tests/                         # Test suite (257 passing tests)
+│   └── test_mascot_animation.py   # Comprehensive mascot engine unit & integration tests
+├── pyproject.toml                 # Package configuration, Ruff settings, & pytest config
+└── requirements.txt               # Pinned dependencies
 ```
 
 ---
 
-## Prerequisites
+## Quickstart (Windows & Cross-Platform)
 
-- **Python 3.11+**
-- **FFmpeg & FFprobe** installed on system PATH (or specified via configuration)
+### 1. Prerequisites
+- **Python 3.11 or 3.12**
+- **FFmpeg & FFprobe** installed and accessible on your `PATH`.
+  ```powershell
+  # Check FFmpeg installation
+  ffmpeg -version
+  ffprobe -version
+  ```
 
----
+### 2. Setup Virtual Environment
+```powershell
+Set-Location "E:\New folder\BENXAUTOMATION"
 
-## Installation
-
-```bash
-git clone https://github.com/kabeesh395-oss/BENXAUTOMATION.git
-cd BENXAUTOMATION
-
-# Create and activate virtual environment
+# Create virtual environment
 python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
+.venv\Scripts\Activate.ps1
 
-# Install dependencies
+# Install package and development tools
 pip install -r requirements.txt
-pip install -e .
+pip install -e ".[dev]"
+```
+
+### 3. Generate Mascot Rig Layers
+```powershell
+python -c "from benxautomation.animation.mascot_assets import MascotAssetBuilder; MascotAssetBuilder().generate_all()"
+```
+
+### 4. Render Sample Mascot Animation Video
+Render an official 9:16 vertical animated Short with speech, subtitles, and real character motion:
+```powershell
+python scripts/render_mascot_sample.py
+```
+Output files will be generated in `output/mascot_sample/ai_quantum_leap_shorts/`:
+- `ai_quantum_leap.mp4` (Full 1080x1920 video with moving character and burned captions)
+- `ai_quantum_leap_thumbnail.jpg` (High-res thumbnail)
+- `ai_quantum_leap_subtitles.srt` / `.vtt` (Synchronized subtitles)
+- `sample_validation_report.json` (FFprobe & MotionValidator metrics)
+
+---
+
+## Story-to-Animation Python API
+
+```python
+from pathlib import Path
+from benxautomation.animation.story_pipeline import (
+    StoryAnimationPipeline,
+    LocalStoryScriptCatalog,
+    StoryScript,
+    MascotScene,
+)
+
+# 1. Initialize Pipeline
+pipeline = StoryAnimationPipeline(output_dir=Path("output/my_stories"))
+
+# 2. Define or Load a Story
+story = StoryScript(
+    story_id="cyber_insight",
+    title="Understanding Encryption",
+    topic="Cybersecurity",
+    format="shorts",  # or "longform" (16:9)
+    scenes=[
+        MascotScene(
+            scene_id="s1",
+            duration_seconds=3.5,
+            dialogue="Modern encryption shields your data using mathematical keys.",
+            pose="gesture",
+            expression="happy",
+            view="front",
+            camera_motion="DOLLY_IN_CLOSEUP",
+            action_text="SECURE DATA",
+        ),
+        MascotScene(
+            scene_id="s2",
+            duration_seconds=3.0,
+            dialogue="Never share private keys, and stay curious with BENX!",
+            pose="pointing_up",
+            expression="excited",
+            view="three_quarter_left",
+            camera_motion="STATIC_MEDIUM",
+            action_text="STAY SAFE",
+        ),
+    ],
+)
+
+# 3. Produce and Validate Animation
+result = pipeline.produce_story_animation(story, fps=24)
+print(f"Rendered: {result.video_path}")
+print(f"Motion score: {result.motion_score}% (Verified: {result.motion_verified})")
 ```
 
 ---
 
-## Configuration
+## AI Code Review & Workflow
 
-Copy `config.example.yaml` to `config.yaml` to customize settings:
+### CodeRabbit AI
+CodeRabbit is integrated via [`.coderabbit.yaml`](.coderabbit.yaml) complying with schema v2.
+- **Rules**: Enforces strict Python exception handling, FFmpeg path sanitization, secret leakage prevention, and test additions on regressions.
+- **Noise Suppression**: Stylistic formatting debates are muted; reviewers focus on genuine bugs.
+- **Setup Guide**: See [`docs/CODERABBIT_SETUP.md`](docs/CODERABBIT_SETUP.md).
 
-```yaml
-project_name: "MyChannel"
-default_language: "en"
+### Sweep AI Status & Decision
+As documented in [`docs/SWEEP_AI_EVALUATION.md`](docs/SWEEP_AI_EVALUATION.md), Sweep AI's cloud service and GitHub App have been officially discontinued by its creators.
+- **Decision**: No abandoned or unmaintained dependencies were installed.
+- **Workflow Recommendation**: AI coding assistance is kept developer-driven (e.g., Aider, Claude Code, Cursor) with human-in-the-loop review. Autonomous bots are never granted direct write/merge permissions to `main`.
 
-rendering:
-  ffmpeg_path: "ffmpeg"
-  ffprobe_path: "ffprobe"
-  shorts:
-    width: 1080
-    height: 1920
-    duration_seconds: 30
-    fps: 30
-  longform:
-    width: 1920
-    height: 1080
-    duration_seconds: 120
-    fps: 30
+---
 
-publishing:
-  enabled: false  # Kept disabled until OAuth credentials are fully configured
+## Testing & Quality Assurance
 
-assets:
-  input_dir: "assets/"
-  output_dir: "output/"
-  license_manifest: "assets/license_manifest.yaml"
+Run the complete test suite (257 passing tests):
+```powershell
+pytest -q
+```
+
+Run only mascot animation tests:
+```powershell
+pytest tests/test_mascot_animation.py -v
+```
+
+Run Ruff lint check:
+```powershell
+ruff check .
 ```
 
 ---
 
-## Usage
+## Security & Publishing Controls
 
-### Command Line Interface
-
-Render both Shorts and Long-form from an image/video asset:
-```bash
-python -m benxautomation.main --asset assets/sample.png --output-dir output/ --duration 5
-```
-
-Render Shorts only (9:16):
-```bash
-python -m benxautomation.main --asset assets/sample.png --shorts-only --duration 15
-```
-
-Render Long-form only (16:9):
-```bash
-python -m benxautomation.main --asset assets/sample.png --longform-only --duration 60
-```
-
-With asset license validation:
-```bash
-python -m benxautomation.main --asset assets/sample.png --manifest assets/license_manifest.yaml
-```
+- **Zero Secret Leaks**: No tokens, OAuth credentials, or API keys are committed. Configuration uses environment variables or GitHub Secrets.
+- **Private-Only Uploads**: The pipeline defaults to `privacy_status: "private"`. Videos are never published publicly without explicit manual review.
+- **Duplicate Protection**: SQLite upload ledger prevents re-uploading identical videos or wasting daily API quota.
 
 ---
 
-## Asset License Manifest
+## License
 
-Assets must be tracked with their license and attribution in a YAML manifest:
-
-```yaml
-assets:
-  - file: "sample.png"
-    license: "cc0"
-    attribution: "Original work or public domain"
-    source_url: "https://example.com"
-```
-
-Allowed licenses: `cc0`, `cc-by-4.0`, `cc-by-sa-4.0`, `mit`, `apache-2.0`, `public-domain`, `royalty-free`, `original`.
-
----
-
-## Safety & Guard-rails
-
-- **YouTube Publishing**: Disabled by default. Any call to `YouTubePublisher.upload()` raises `PublishingDisabledError` until official OAuth client credentials and flows are configured. No mock or fake uploads will ever take place.
-- **Secrets Management**: No API keys or OAuth secrets are stored in the repository. `.env`, `client_secret*.json`, and private keys are ignored via `.gitignore`.
-
----
-
-## Running Tests
-
-Run the full pytest suite:
-```bash
-pytest
-```
-
-Run only unit tests (excluding tests requiring FFmpeg):
-```bash
-pytest -m "not ffmpeg"
-```
-
-Run with verbose output and tracebacks:
-```bash
-pytest -v --tb=short
-```
-
----
-
-## Current Status & Limitations (MVP)
-
-- **Language Registry**: Currently seeded with English (`en`). Additional languages can be registered through `LanguageRegistry`, but automated multilingual TTS/dubbing is not yet connected.
-- **Rendering**: Real rendering via FFmpeg produces valid MP4 files with video stream from local image/video assets. Audio track mixing and subtitle overlays will be added in future plugins.
-- **Publishing**: Strictly disabled stub to protect against unauthorized uploads.
-
----
-
-## Next Steps
-
-1. Configure Google Cloud OAuth 2.0 Client credentials and implement authorization flow.
-2. Add audio synthesis (TTS) plugin to mix voiceovers with background audio.
-3. Integrate Whisper / subtitle generator plugin.
-4. Expand language registry to the target 20 languages with per-language metadata models.
+Original code and character designs are licensed under the **MIT License**. All mascot character assets are creator-owned by BENXAUTOMATION.

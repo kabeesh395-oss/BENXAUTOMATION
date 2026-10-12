@@ -1,0 +1,60 @@
+{
+  "character_id": "benx_scout",
+  "name": "BENX",
+  "archetype": "Cyber Storyteller & Tech Scout",
+  "version": "2.0.0",
+  "author": "BENXAUTOMATION",
+  "license": "original_creator_owned",
+  "colors": {
+    "obsidian_graphite": "#0B132B",
+    "deep_cyber_navy": "#1C2541",
+    "cyber_teal": "#00F2FE",
+    "electric_blue": "#4FACFE",
+    "plasma_white": "#FFFFFF",
+    "coral_neon": "#FF416C",
+    "space_void": "#050811"
+  },
+  "views": [
+    "front",
+    "three_quarter_left",
+    "three_quarter_right"
+  ],
+  "expressions": [
+    "happy",
+    "surprised",
+    "confused",
+    "serious",
+    "excited",
+    "sad"
+  ],
+  "visemes": [
+    "rest",
+    "a",
+    "o",
+    "e",
+    "wide"
+  ],
+  "poses": [
+    "idle",
+    "gesture",
+    "pointing_right",
+    "pointing_up",
+    "thinking_chin",
+    "shrug",
+    "cheer"
+  ],
+  "render_formats": {
+    "shorts": {
+      "width": 1080,
+      "height": 1920,
+      "aspect_ratio": "9:16",
+      "default_fps": 30
+    },
+    "longform": {
+      "width": 1920,
+      "height": 1080,
+      "aspect_ratio": "16:9",
+      "default_fps": 30
+    }
+  }
+}
