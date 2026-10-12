@@ -42,15 +42,20 @@ async def _resilient_edge_tts_save(self, output_path: str) -> None:
             ffmpeg_bin = find_ffmpeg()
             text = getattr(self, "_benx_text", "") or ""
             words = len(text.split()) if text else 10
-            # Natural speech is ~130-150 words/min (approx 2.2 words/sec)
-            duration = max(3.0, round(words / 2.0, 2))
+            # Natural speech is ~130-150 words/min (approx 2.2 words/sec).
+            # Size audio slightly below target frame boundary so container padding
+            # never exceeds the rendered video stream length.
+            target_dur = max(3.0, round(words / 2.0, 2))
+            audio_dur = max(2.5, target_dur - 0.20)
             cmd = [
                 ffmpeg_bin,
                 "-y",
                 "-f",
                 "lavfi",
                 "-i",
-                f"anoisesrc=d={duration:.2f}:c=pink:r=24000:a=0.3,volume='if(lt(mod(t,0.4),0.2),1,0.2)'",
+                f"anoisesrc=d={audio_dur:.2f}:c=pink:r=24000:a=0.3,volume='if(lt(mod(t,0.4),0.2),1,0.2)'",
+                "-t",
+                f"{audio_dur:.2f}",
                 "-b:a",
                 "64k",
                 str(output_path),
