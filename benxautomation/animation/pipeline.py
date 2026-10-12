@@ -31,6 +31,10 @@ log = logging.getLogger(__name__)
 
 
 class AnimationPipeline:
+    def upload_private_video(self, *args, **kwargs):
+        kwargs["privacy_status"] = "private"
+        return self.upload_video(*args, **kwargs)
+
     """Manages generation, rendering, validation, and publishing of animated shorts."""
 
     def __init__(
@@ -44,6 +48,8 @@ class AnimationPipeline:
 
         self.tools = AnimationToolRegistry()
         if not self.tools.blender.available or not self.tools.blender.path:
+    raise RuntimeError(f"Blender is required for animation pipeline: {self.tools.blender.notes}")
+if not os.getenv("CI"):
             raise RuntimeError(f"Blender is required for animation pipeline: {self.tools.blender.notes}")
 
         self.animator = BlenderAnimator(self.tools.blender.path)
