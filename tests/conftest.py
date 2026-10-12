@@ -3,12 +3,54 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import textwrap
 from pathlib import Path
 
+import edge_tts
 import pytest
 
 from benxautomation.renderer.ffmpeg_utils import ffmpeg_is_available, ffprobe_is_available
+
+
+# ── Cloud CI Resilience: Handle Bing 403 on Datacenter Runners ─────
+
+_real_edge_tts_save = edge_tts.Communicate.save
+
+
+async def _resilient_edge_tts_save(self, output_path: str) -> None:
+    try:
+        await _real_edge_tts_save(self, output_path)
+    except Exception as exc:
+        err_msg = str(exc)
+        if (
+            "403" in err_msg
+            or "WSServerHandshakeError" in err_msg
+            or "speech.platform.bing.com" in err_msg
+        ):
+            from benxautomation.renderer.ffmpeg_utils import find_ffmpeg
+
+            ffmpeg_bin = find_ffmpeg()
+            text = getattr(self, "text", "") or ""
+            words = len(text.split()) if text else 5
+            duration = max(2.5, min(30.0, words / 2.2))
+            cmd = [
+                ffmpeg_bin,
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                f"anoisesrc=d={duration:.2f}:c=pink:r=24000:a=0.3,volume='if(lt(mod(t,0.4),0.2),1,0.2)'",
+                "-b:a",
+                "64k",
+                str(output_path),
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+            return
+        raise
+
+
+edge_tts.Communicate.save = _resilient_edge_tts_save
 
 
 # ── FFmpeg availability ─────────────────────────────────────────────
