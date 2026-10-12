@@ -16,7 +16,7 @@ import subprocess
 import tempfile
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from benxautomation.animation.blender_animator import BlenderAnimator
 from benxautomation.animation.models import (
@@ -31,10 +31,6 @@ log = logging.getLogger(__name__)
 
 
 class AnimationPipeline:
-    def upload_private_video(self, *args, **kwargs):
-        kwargs["privacy_status"] = "private"
-        return self.upload_video(*args, **kwargs)
-
     """Manages generation, rendering, validation, and publishing of animated shorts."""
 
     def __init__(
@@ -48,8 +44,6 @@ class AnimationPipeline:
 
         self.tools = AnimationToolRegistry()
         if not self.tools.blender.available or not self.tools.blender.path:
-    raise RuntimeError(f"Blender is required for animation pipeline: {self.tools.blender.notes}")
-if not os.getenv("CI"):
             raise RuntimeError(f"Blender is required for animation pipeline: {self.tools.blender.notes}")
 
         self.animator = BlenderAnimator(self.tools.blender.path)
@@ -283,11 +277,23 @@ if not os.getenv("CI"):
         self,
         video_res: AnimatedVideoResult,
         script: AnimatedShortScript,
-        privacy_status: str = "public",
+        privacy_status: str = "private",
     ) -> tuple[str, Optional[str], Optional[str]]:
-        """Upload to YouTube with specified privacy status ('public' or 'private') and verify with API."""
+        """Upload to YouTube with specified privacy status ('private', 'unlisted', or 'public') and verify with API."""
         if not video_res.quality_passed or not video_res.motion_verified:
+            log.warning("Upload blocked for %s: quality or motion verification failed.", video_res.video_id)
             return "SKIPPED_QUALITY_FAILED", None, None
+
+        if not getattr(video_res, "rights_verified", True):
+            log.warning("Upload blocked for %s: commercial asset rights unverified.", video_res.video_id)
+            return "SKIPPED_RIGHTS_FAILED", None, None
+
+        valid_statuses = {"private", "unlisted", "public"}
+        if not privacy_status or privacy_status.lower() not in valid_statuses:
+            raise ValueError(
+                f"Unsupported privacy status: '{privacy_status}'. Must be one of {valid_statuses}."
+            )
+        privacy_status = privacy_status.lower()
 
         from benxautomation.config import PublishingConfig
         from benxautomation.publisher.youtube import YouTubeOAuthManager, YouTubePublisher
@@ -351,8 +357,15 @@ if not os.getenv("CI"):
             log.error("Upload failed for %s: %s", script.script_id, exc)
             return f"FAILED: {err_str[:100]}", None, None
 
-    # Alias for backward compatibility
-    upload_private_video = upload_video
+    def upload_private_video(
+        self,
+        video_res: AnimatedVideoResult,
+        script: AnimatedShortScript,
+        **kwargs: Any,
+    ) -> tuple[str, Optional[str], Optional[str]]:
+        """Upload video strictly as PRIVATE to YouTube. Never allows public publishing."""
+        kwargs["privacy_status"] = "private"
+        return self.upload_video(video_res, script, **kwargs)
 
     def run_batch(
         self,
