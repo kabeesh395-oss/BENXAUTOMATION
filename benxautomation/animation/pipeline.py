@@ -31,6 +31,10 @@ log = logging.getLogger(__name__)
 
 
 class AnimationPipeline:
+    def upload_private_video(self, *args, **kwargs):
+        kwargs["privacy_status"] = "private"
+        return self.upload_video(*args, **kwargs)
+
     """Manages generation, rendering, validation, and publishing of animated shorts."""
 
     def __init__(
