@@ -104,6 +104,13 @@ class ShortsRendererPlugin(RendererPlugin):
 
             total_scene_dur = sum(getattr(sc, "duration_seconds", float(dur) / len(scenes)) for sc in scenes)
             render_dur = max(float(dur), total_scene_dur)
+            if audio_path and audio_path.is_file():
+                try:
+                    from benxautomation.renderer.ffmpeg_utils import probe_file
+                    a_dur = float(probe_file(audio_path).get("format", {}).get("duration", 0.0))
+                    render_dur = max(render_dur, a_dur)
+                except Exception:
+                    pass
 
             args.extend([
                 "-t", f"{render_dur:.3f}",
