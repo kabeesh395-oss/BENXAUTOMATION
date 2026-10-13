@@ -194,6 +194,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--upload-private", action="store_true", help="Upload to YouTube as PRIVATE")
     parser.add_argument("--sync-state", action="store_true", help="Sync ledger state to git branch if configured")
+    parser.add_argument(
+        "--fallback-to-topic",
+        action="store_true",
+        help="Fallback to original topic-to-video workflow if source video is unavailable",
+    )
+    parser.add_argument(
+        "--fallback-topic",
+        default="5 Surprising Breakthroughs in Science",
+        help="Topic string for original video fallback (default: '5 Surprising Breakthroughs in Science')",
+    )
     return parser
 
 
@@ -225,18 +235,86 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  - {note}")
     print("-------------------------------------------------------")
 
-    if args.check_env and not args.source and not args.dry_run:
+    if args.check_env and not args.source and not args.dry_run and not args.fallback_to_topic:
         return 0
 
     if not env_status["ffmpeg"]:
         print("ERROR: FFmpeg is not installed in the environment. Install with 'sudo apt-get install ffmpeg'.")
         return 1
 
-    source_path = args.source
+    source_path = args.source or os.environ.get("PODCAST_SOURCE_URL")
     if not source_path:
+        if args.fallback_to_topic:
+            print("\n[DELIBERATE ORIGINAL TOPIC WORKFLOW ACTIVATED]")
+            print("Notice: No source video provided. Executing deliberate original topic-to-video workflow.")
+            print(f"Topic: '{args.fallback_topic}' | Mode: {'DRY-RUN' if args.dry_run else ('UPLOAD_PRIVATE' if args.upload_private else 'RENDER_ONLY')}")
+            from benxautomation.config import AppConfig
+            from benxautomation.pipeline import VideoPipeline
+            from benxautomation.renderer.media_validator import MediaValidator
+
+            cfg = AppConfig()
+            pipeline = VideoPipeline(cfg)
+            fallback_out = Path("output/podcast_shorts")
+            fallback_out.mkdir(parents=True, exist_ok=True)
+
+            provider = "auto"
+            if not os.environ.get("GEMINI_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+                provider = "fallback"
+
+            res = pipeline.run(
+                topic=args.fallback_topic,
+                output_dir=fallback_out,
+                render_shorts=True,
+                render_longform=False,
+                provider_name=provider,
+                enable_subtitles=True,
+                enable_music=False,
+            )
+
+            if not res.success or not res.shorts_result or not res.shorts_result.output_path.is_file():
+                print("ERROR: Fallback original topic video generation failed.", file=sys.stderr)
+                return 1
+
+            short_vid = res.shorts_result.output_path
+            print(f"Successfully generated topic Short: {short_vid} ({short_vid.stat().st_size} bytes)")
+
+            validator = MediaValidator()
+            passed, issues, meta = validator.validate_for_private_upload(short_vid, is_short=True)
+            if not passed:
+                print(f"ERROR: Fallback video failed quality checks: {issues}", file=sys.stderr)
+                return 1
+
+            if args.dry_run:
+                print("DRY-RUN VERIFIED: Fallback video rendered and validated locally. Upload skipped.")
+            elif args.upload_private:
+                if not env_status["oauth_configured"]:
+                    print("WARNING: OAuth secrets not configured in environment. Local artifact preserved.")
+                else:
+                    from benxautomation.config import PublishingConfig
+                    from benxautomation.publisher.youtube import YouTubeOAuthManager, YouTubePublisher
+
+                    token_dir = Path.home() / ".benxautomation"
+                    client_secret_file = token_dir / "client_secret.json"
+                    oauth_mgr = YouTubeOAuthManager(client_secret_file)
+                    pub_cfg = PublishingConfig(enabled=True, enforce_private=True)
+                    publisher = YouTubePublisher(pub_cfg, oauth_manager=oauth_mgr)
+                    up_res = publisher.upload(
+                        short_vid,
+                        title=f"{args.fallback_topic} #Shorts",
+                        description=f"{args.fallback_topic}\n\nProduced with BENXAUTOMATION.",
+                        tags=["shorts", "science", "benx"],
+                        privacy_status="private",
+                    )
+                    print(f"Uploaded fallback Short as PRIVATE -> Video ID: {up_res.get('video_id') or up_res.get('id')}")
+
+            print("\n=======================================================")
+            print("CLOUD RUNNER COMPLETED DELIBERATE TOPIC SHORT")
+            print("=======================================================\n")
+            return 0
+
         print("ERROR: Missing required --source parameter for podcast clipping.")
         print("Usage: python -m benxautomation.cloud_runner --source <video_url_or_file> [options]")
-        print("Note: To generate original narrated videos from topics, use 'python -m benxautomation.main --topic ...'")
+        print("Note: To fall back to original topic video generation if source is unavailable, pass --fallback-to-topic.")
         return 1
 
     source_p = Path(source_path)

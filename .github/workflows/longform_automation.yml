@@ -95,7 +95,28 @@ jobs:
           TOPIC="${INPUT_TOPIC:-5 Surprising Mysteries of the Deep Sea}"
           DUR="${INPUT_DURATION:-60}"
           FORMAT="${INPUT_FORMAT:-both}"
-          MODE="${INPUT_MODE:-dry_run}"
+
+          # Intentional scheduled defaults vs manual dispatch
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            MODE="upload_private"
+          else
+            MODE="${INPUT_MODE:-dry_run}"
+          fi
+
+          # Input validation
+          case "$FORMAT" in
+            both|shorts|longform) ;;
+            *) echo "ERROR: Invalid format '$FORMAT'. Must be both, shorts, or longform." && exit 1 ;;
+          esac
+
+          case "$MODE" in
+            dry_run|render_only|upload_private) ;;
+            *) echo "ERROR: Invalid mode '$MODE'. Must be dry_run, render_only, or upload_private." && exit 1 ;;
+          esac
+
+          if ! [[ "$DUR" =~ ^[0-9]+$ ]] || [ "$DUR" -le 0 ]; then
+            echo "ERROR: Duration must be a positive integer in seconds (got: $DUR)." && exit 1
+          fi
 
           # Resolve provider safely
           PROVIDER="auto"
@@ -106,6 +127,24 @@ jobs:
 
           echo "Generating video: Topic='$TOPIC', Duration=$DUR, Format=$FORMAT, Mode=$MODE, Provider=$PROVIDER"
           python -m benxautomation.main --topic "$TOPIC" --duration "$DUR" --format "$FORMAT" --mode "$MODE" --provider "$PROVIDER"
+
+      - name: Verify Generated Video Outputs and Decodability
+        run: |
+          python -c "
+          from pathlib import Path
+          import subprocess
+          out = Path('output')
+          mp4s = [f for f in out.rglob('*.mp4') if f.is_file() and f.stat().st_size > 0]
+          if not mp4s:
+              raise SystemExit('ERROR: No valid non-empty MP4 video was generated in output directory.')
+          print(f'Verification passed: Discovered {len(mp4s)} valid rendered video(s):')
+          for m in mp4s:
+              print(f'  ✓ {m} ({m.stat().st_size} bytes)')
+              res = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(m), '-f', 'null', '-'], capture_output=True, text=True)
+              if res.returncode != 0:
+                  raise SystemExit(f'ERROR: File {m} failed FFmpeg decode: {res.stderr}')
+              print('    -> FFmpeg decode: OK')
+          "
 
       - name: Upload Generated Video Artifacts
         uses: actions/upload-artifact@v4

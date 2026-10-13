@@ -56,7 +56,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install yt-dlp
           pip install -e .
 
       - name: Restore Persistent State (Upload Ledger & Job Queue)
@@ -76,24 +75,45 @@ jobs:
           YOUTUBE_CLIENT_SECRET_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}
           YOUTUBE_TOKENS_JSON: ${{ secrets.YOUTUBE_TOKENS_JSON }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PODCAST_SCHEDULED_SOURCE_URL: ${{ secrets.PODCAST_SCHEDULED_SOURCE_URL }}
         run: |
           EXTRA_FLAGS=""
-          
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             EXTRA_FLAGS="--mode ${{ github.event.inputs.mode }} --clips-target ${{ github.event.inputs.clips_target }}"
             if [ -n "${{ github.event.inputs.source_url }}" ]; then
               EXTRA_FLAGS="$EXTRA_FLAGS --source '${{ github.event.inputs.source_url }}'"
             else
-              echo "ERROR: source_url is required for podcast clipping. For original videos from topics, use the Topic Video automation workflow."
-              exit 1
+              echo "Notice: No source URL provided in manual dispatch. Enabling deliberate fallback-to-topic mode."
+              EXTRA_FLAGS="$EXTRA_FLAGS --fallback-to-topic"
             fi
           else
-            echo "Notice: Scheduled podcast-to-shorts requires a configured source video. Skipping run."
-            exit 0
+            # Scheduled execution (cron)
+            if [ -n "$PODCAST_SCHEDULED_SOURCE_URL" ]; then
+              echo "Running scheduled podcast clipping from configured source."
+              EXTRA_FLAGS="--source '$PODCAST_SCHEDULED_SOURCE_URL' --mode upload_private --clips-target 1"
+            else
+              echo "Notice: Scheduled run has no PODCAST_SCHEDULED_SOURCE_URL secret configured."
+              echo "Executing deliberate original topic Short workflow instead of fake skip."
+              EXTRA_FLAGS="--fallback-to-topic --mode upload_private --clips-target 1"
+            fi
           fi
 
           echo "Running cloud automation with flags: $EXTRA_FLAGS"
           python -m benxautomation.cloud_runner $EXTRA_FLAGS
+
+      - name: Verify Generated Video Outputs
+        run: |
+          python -c "
+          from pathlib import Path
+          out = Path('output')
+          mp4s = [f for f in out.rglob('*.mp4') if f.is_file() and f.stat().st_size > 0]
+          if not mp4s:
+              raise SystemExit('ERROR: No valid non-empty MP4 video was generated in output directory.')
+          print(f'Verification passed: Discovered {len(mp4s)} valid rendered video(s):')
+          for m in mp4s:
+              print(f'  ✓ {m} ({m.stat().st_size} bytes)')
+          "
 
       - name: Upload Generated Video Assets & Metadata
         uses: actions/upload-artifact@v4
