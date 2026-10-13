@@ -80,6 +80,7 @@ class MascotStoryResult:
     motion_verified: bool
     motion_score: float
     quality_passed: bool
+    ass_path: Optional[Path] = None
     quality_issues: list[str] = field(default_factory=list)
     youtube_status: str = "NOT_UPLOADED"
     youtube_video_id: Optional[str] = None
@@ -94,6 +95,7 @@ class MascotStoryResult:
             "audio_path": str(self.audio_path),
             "srt_path": str(self.srt_path),
             "vtt_path": str(self.vtt_path),
+            "ass_path": str(self.ass_path) if self.ass_path else None,
             "thumbnail_path": str(self.thumbnail_path),
             "metadata_path": str(self.metadata_path),
             "duration_seconds": self.duration_seconds,
@@ -295,6 +297,7 @@ class StoryAnimationPipeline:
         audio_path = job_dir / f"{script.story_id}_narration.mp3"
         srt_path = job_dir / f"{script.story_id}_subtitles.srt"
         vtt_path = job_dir / f"{script.story_id}_subtitles.vtt"
+        ass_path = job_dir / f"{script.story_id}_subtitles.ass"
         video_path = job_dir / f"{script.story_id}.mp4"
         thumb_path = job_dir / f"{script.story_id}_thumbnail.jpg"
         meta_path = job_dir / f"{script.story_id}_metadata.json"
@@ -317,8 +320,14 @@ class StoryAnimationPipeline:
 
         actual_total_dur = sum(sc.duration_seconds for sc in script.scenes)
 
-        # 4. Generate Subtitles (SRT and VTT)
-        self._generate_synced_subtitles(script.scenes, srt_path, vtt_path)
+        # 4. Generate Subtitles (SRT, VTT, and ASS with safe margins)
+        self._generate_synced_subtitles(
+            script.scenes,
+            srt_path,
+            vtt_path,
+            ass_out=ass_path,
+            format_type=script.format,
+        )
 
         # 5. Configure Mascot Animation Engine
         render_cfg = (
@@ -336,7 +345,7 @@ class StoryAnimationPipeline:
             scenes=script.scenes,
             output_mp4=video_path,
             audio_path=audio_path,
-            subtitle_path=srt_path,
+            subtitle_path=ass_path,
         )
 
         # 7. Extract Thumbnail
@@ -375,6 +384,7 @@ class StoryAnimationPipeline:
             motion_verified=motion_ok,
             motion_score=motion_score,
             quality_passed=q_pass,
+            ass_path=ass_path,
             quality_issues=q_issues,
         )
 
@@ -390,10 +400,50 @@ class StoryAnimationPipeline:
 
         return result
 
-    def _generate_synced_subtitles(self, scenes: list[MascotScene], srt_out: Path, vtt_out: Path) -> None:
-        """Create synchronized SRT and VTT subtitles from scene timestamps."""
+    @staticmethod
+    def _chunk_dialogue_cues(text: str, duration: float, max_words: int = 6) -> list[tuple[float, float, str]]:
+        """Split scene dialogue into punchy short subtitle cues and apportion duration."""
+        words = text.strip().split()
+        if not words:
+            return []
+        if len(words) <= max_words:
+            return [(0.0, max(0.5, duration), text.strip())]
+
+        raw_chunks: list[str] = []
+        cur: list[str] = []
+        for w in words:
+            cur.append(w)
+            if (len(cur) >= 3 and any(w.endswith(p) for p in [",", ";", ":", ".", "!", "?"])) or len(cur) >= max_words:
+                raw_chunks.append(" ".join(cur))
+                cur = []
+        if cur:
+            if raw_chunks and len(cur) <= 2:
+                raw_chunks[-1] += " " + " ".join(cur)
+            else:
+                raw_chunks.append(" ".join(cur))
+
+        total_len = sum(len(c) for c in raw_chunks) or 1
+        cues: list[tuple[float, float, str]] = []
+        t = 0.0
+        for i, c in enumerate(raw_chunks):
+            chunk_dur = max(0.6, (len(c) / total_len) * duration)
+            end_t = duration if i == len(raw_chunks) - 1 else min(duration, t + chunk_dur)
+            cues.append((t, end_t, c))
+            t = end_t
+        return cues
+
+    def _generate_synced_subtitles(
+        self,
+        scenes: list[MascotScene],
+        srt_out: Path,
+        vtt_out: Path,
+        ass_out: Optional[Path] = None,
+        format_type: str = "shorts",
+    ) -> None:
+        """Create synchronized SRT, VTT, and ASS subtitles with phrase-chunked safe-zone styling."""
         srt_lines: list[str] = []
         vtt_lines: list[str] = ["WEBVTT\n"]
+        ass_events: list[str] = []
 
         def _fmt_srt(sec: float) -> str:
             h = int(sec // 3600)
@@ -409,17 +459,49 @@ class StoryAnimationPipeline:
             ms = int((sec - int(sec)) * 1000)
             return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
 
-        cur_t = 0.2
-        for idx, sc in enumerate(scenes, start=1):
-            end_t = cur_t + sc.duration_seconds
-            # SRT
-            srt_lines.append(f"{idx}\n{_fmt_srt(cur_t)} --> {_fmt_srt(end_t)}\n{sc.dialogue}\n")
-            # VTT
-            vtt_lines.append(f"{idx}\n{_fmt_vtt(cur_t)} --> {_fmt_vtt(end_t)}\n{sc.dialogue}\n")
-            cur_t = end_t
+        def _fmt_ass(sec: float) -> str:
+            h = int(sec // 3600)
+            m = int((sec % 3600) // 60)
+            s = int(sec % 60)
+            cs = int((sec - int(sec)) * 100)
+            return f"{h:01d}:{m:02d}:{s:02d}.{cs:02d}"
+
+        cur_scene_start = 0.2
+        cue_idx = 1
+        for sc in scenes:
+            cues = self._chunk_dialogue_cues(sc.dialogue, sc.duration_seconds)
+            for c_start, c_end, c_text in cues:
+                start_t = cur_scene_start + c_start
+                end_t = cur_scene_start + c_end
+                srt_lines.append(f"{cue_idx}\n{_fmt_srt(start_t)} --> {_fmt_srt(end_t)}\n{c_text}\n")
+                vtt_lines.append(f"{cue_idx}\n{_fmt_vtt(start_t)} --> {_fmt_vtt(end_t)}\n{c_text}\n")
+                ass_events.append(f"Dialogue: 0,{_fmt_ass(start_t)},{_fmt_ass(end_t)},Default,,0,0,0,,{c_text}")
+                cue_idx += 1
+            cur_scene_start += sc.duration_seconds
 
         srt_out.write_text("\n".join(srt_lines), encoding="utf-8")
         vtt_out.write_text("\n".join(vtt_lines), encoding="utf-8")
+
+        if ass_out:
+            is_shorts = (format_type == "shorts")
+            res_x = 1080 if is_shorts else 1920
+            res_y = 1920 if is_shorts else 1080
+            font_size = 46 if is_shorts else 36
+            margin_v = 330 if is_shorts else 75
+            ass_header = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: {res_x}
+PlayResY: {res_y}
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,{font_size},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3.2,1,2,30,30,{margin_v},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+            ass_out.write_text(ass_header + "\n".join(ass_events) + "\n", encoding="utf-8")
 
     def _extract_thumbnail(self, video_path: Path, thumb_out: Path, offset_sec: float = 1.0) -> None:
         """Extract high-quality JPEG thumbnail using FFmpeg."""

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from benxautomation.animation.mascot_assets import MascotAssetBuilder
 
@@ -278,23 +278,53 @@ class MascotAnimationEngine:
 
         # 5. Position character on screen
         char_x = int((width - scaled_char.width) / 2 + cam_pan_x)
-        char_base_y = int(height * 0.32) if self.config.aspect_ratio == "9:16" else int(height * 0.15)
+        char_base_y = int(height * 0.22) if self.config.aspect_ratio == "9:16" else int(height * 0.12)
         char_y = int(char_base_y + breath_y)
 
         # Paste character onto background
         frame.alpha_composite(scaled_char, (char_x, char_y))
 
-        # 6. Render UI / Action text overlay if specified
+        # 6. Render UI / Action text overlay if specified (Upper HUD Pill to avoid subtitle collision)
         if scene.action_text:
             overlay_draw = ImageDraw.Draw(frame)
-            banner_w = int(width * 0.85)
-            bx1 = (width - banner_w) // 2
-            bx2 = bx1 + banner_w
-            by1 = int(height * 0.78)
-            by2 = by1 + 75
-            overlay_draw.rounded_rectangle([(bx1, by1), (bx2, by2)], radius=18, fill=(11, 19, 43, 220), outline=(0, 242, 254, 255), width=3)
-            # Center action text
-            overlay_draw.text((bx1 + 30, by1 + 24), scene.action_text.upper(), fill=(255, 255, 255, 255))
+            text_str = scene.action_text.upper()
+
+            # Load crisp bold font for high visibility
+            font_size = 28 if self.config.aspect_ratio == "9:16" else 20
+            try:
+                font = ImageFont.truetype("arialbd.ttf", font_size)
+            except Exception:
+                try:
+                    font = ImageFont.truetype("arial.ttf", font_size)
+                except Exception:
+                    font = ImageFont.load_default()
+
+            bbox = font.getbbox(text_str) if hasattr(font, "getbbox") else (0, 0, len(text_str) * 12, font_size)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+
+            if self.config.aspect_ratio == "9:16":
+                pill_h = 66
+                by1 = int(height * 0.10)
+            else:
+                pill_h = 50
+                by1 = int(height * 0.05)
+
+            pill_w = max(int(width * 0.42), text_w + 64)
+            bx1 = (width - pill_w) // 2
+            bx2 = bx1 + pill_w
+            by2 = by1 + pill_h
+
+            overlay_draw.rounded_rectangle(
+                [(bx1, by1), (bx2, by2)],
+                radius=18,
+                fill=(11, 19, 43, 230),
+                outline=(0, 242, 254, 255),
+                width=2,
+            )
+            tx = bx1 + (pill_w - text_w) // 2
+            ty = by1 + (pill_h - text_h) // 2 - (bbox[1] if hasattr(font, "getbbox") else 0)
+            overlay_draw.text((tx, ty), text_str, font=font, fill=(255, 255, 255, 255))
 
         return frame.convert("RGB")
 
@@ -375,9 +405,18 @@ class MascotAnimationEngine:
             # Video encoding parameters
             vf_filters: list[str] = []
             if subtitle_path and Path(subtitle_path).is_file():
-                # Escape path for FFmpeg subtitles filter
-                sub_escaped = str(subtitle_path).replace("\\", "/").replace(":", "\\:")
-                vf_filters.append(f"subtitles='{sub_escaped}'")
+                sub_file = Path(subtitle_path)
+                ass_cand = sub_file.with_suffix(".ass")
+                if ass_cand.is_file():
+                    sub_file = ass_cand
+                sub_escaped = str(sub_file).replace("\\", "/").replace(":", "\\:")
+                if sub_file.suffix.lower() == ".ass":
+                    vf_filters.append(f"subtitles='{sub_escaped}'")
+                else:
+                    margin_v = 330 if self.config.aspect_ratio == "9:16" else 75
+                    f_size = 22 if self.config.aspect_ratio == "9:16" else 18
+                    style_str = f"Fontname=Arial,Bold=1,FontSize={f_size},PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2.5,Shadow=1,Alignment=2,MarginV={margin_v}"
+                    vf_filters.append(f"subtitles='{sub_escaped}':force_style='{style_str}'")
 
             if vf_filters:
                 cmd.extend(["-vf", ",".join(vf_filters)])

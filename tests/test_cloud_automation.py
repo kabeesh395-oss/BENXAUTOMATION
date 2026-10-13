@@ -182,3 +182,38 @@ def test_cloud_runner_mode_flag_routing(tmp_path: Path):
     test_src = _create_test_podcast_fixture(tmp_path / "test_sample_mode.mp4")
     ret = main(["--mode", "dry_run", "--source", str(test_src), "--clips-target", "1"])
     assert ret == 0
+
+
+def test_cloud_runner_fallback_to_topic_dry_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Regression test: Cloud runner executes deliberate fallback topic workflow when source is omitted."""
+    # Ensure no external API keys are required for test
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("PODCAST_SOURCE_URL", raising=False)
+
+    ret = main([
+        "--fallback-to-topic",
+        "--dry-run",
+        "--fallback-topic",
+        "Deep Sea Marine Mysteries",
+    ])
+    assert ret == 0
+
+
+def test_ci_workflow_no_monkeypatch_and_clean_requests_version():
+    """Regression test: Ensure ci.yml does not monkeypatch requests and uses official __version__."""
+    ci_wf = Path(".github/workflows/ci.yml")
+    content = ci_wf.read_text(encoding="utf-8")
+    assert "version = __version__" not in content, "Monkeypatching requests.__file__ must be eliminated from CI"
+    assert "requests.version" not in content, "requests.version is unsupported; requests.__version__ must be used"
+    assert "requests.__version__" in content
+
+
+def test_scheduled_workflows_no_silent_exit_zero_skip():
+    """Regression test: Scheduled workflows must never silently exit 0 without executing a pipeline."""
+    for wf_path in Path(".github/workflows").glob("*.yml"):
+        content = wf_path.read_text(encoding="utf-8")
+        assert "Skipping run.\n            exit 0" not in content, (
+            f"{wf_path.name} contains silent exit 0 without processing"
+        )
+
