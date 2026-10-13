@@ -31,6 +31,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e ".[dev]"
+                    python -m pip install "numpy>=1.24.0"
           python -c "import requests, pathlib; p = pathlib.Path(requests.__file__); txt = p.read_text(encoding='utf-8'); 'version = __version__' in txt or p.write_text(txt + '\nversion = __version__\n', encoding='utf-8')"
 
       - name: Verify dependencies
