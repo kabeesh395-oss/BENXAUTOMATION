@@ -48,6 +48,7 @@ def main():
         "thumbnail_path": str(result.thumbnail_path),
         "srt_path": str(result.srt_path),
         "vtt_path": str(result.vtt_path),
+        "ass_path": str(result.ass_path) if result.ass_path else None,
     }
 
     report_file = out_dir / "sample_validation_report.json"

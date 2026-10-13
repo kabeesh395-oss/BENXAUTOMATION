@@ -302,3 +302,43 @@ def test_story_pipeline_rejects_invalid_scenes(tmp_path: Path):
         pipeline.produce_story_animation(bad_script)
 
     assert "Script validation failed" in str(excinfo.value)
+
+
+def test_story_pipeline_subtitle_phrase_chunking_and_ass_styling(tmp_path: Path):
+    """Regression test: Ensure subtitles are chunked into short readable cues and formatted with ASS safe margins."""
+    pipeline = StoryAnimationPipeline(
+        output_dir=tmp_path / "out",
+        assets_dir=tmp_path / "mascot",
+    )
+    long_dialogue = "Traditional chips check one path at a time. Quantum qubits explore every possibility simultaneously."
+    cues = pipeline._chunk_dialogue_cues(long_dialogue, duration=4.0, max_words=6)
+
+    # Must be split into at least 2 cues so no cue exceeds safe line limits
+    assert len(cues) >= 2
+    for start_t, end_t, text in cues:
+        assert len(text.split()) <= 8
+        assert start_t < end_t
+
+    # Test ASS header and margin generation
+    srt_out = tmp_path / "test.srt"
+    vtt_out = tmp_path / "test.vtt"
+    ass_out = tmp_path / "test.ass"
+
+    scenes = [
+        MascotScene(
+            scene_id="s1",
+            duration_seconds=3.0,
+            dialogue=long_dialogue,
+            action_text="QUANTUM TEST",
+        )
+    ]
+    pipeline._generate_synced_subtitles(scenes, srt_out, vtt_out, ass_out, format_type="shorts")
+
+    assert ass_out.is_file()
+    ass_content = ass_out.read_text(encoding="utf-8")
+    assert "PlayResX: 1080" in ass_content
+    assert "PlayResY: 1920" in ass_content
+    assert "MarginV, Encoding" in ass_content
+    assert ",330,1" in ass_content  # Verifies 330px bottom margin for Shorts safe zone
+    assert "QUANTUM TEST" not in ass_content  # Action pill is separate from subtitles
+

@@ -167,14 +167,32 @@ class VideoPipeline:
             # Topic provided: trigger real AI script generation or configured provider
             p_name = provider_name or self.config.script.provider
             log.info("Generating script for topic '%s' via provider '%s'...", topic, p_name)
-            provider = get_script_provider(p_name, config=self.config.script)
-            script_res = provider.generate_script(
-                ScriptRequest(
-                    topic=topic,
-                    language=target_lang,
-                    duration_seconds=target_dur,
+            try:
+                provider = get_script_provider(p_name, config=self.config.script)
+                script_res = provider.generate_script(
+                    ScriptRequest(
+                        topic=topic,
+                        language=target_lang,
+                        duration_seconds=target_dur,
+                    )
                 )
-            )
+            except ScriptGenerationError as exc:
+                if p_name != "fallback":
+                    log.warning(
+                        "Primary script provider '%s' failed (%s). Falling back to offline fallback provider...",
+                        p_name,
+                        exc,
+                    )
+                    fallback_prov = get_script_provider("fallback", config=self.config.script)
+                    script_res = fallback_prov.generate_script(
+                        ScriptRequest(
+                            topic=topic,
+                            language=target_lang,
+                            duration_seconds=target_dur,
+                        )
+                    )
+                else:
+                    raise
         elif asset_path:
             # No script or topic: silent or asset-only mode (for backwards compatibility)
             script_res = None
