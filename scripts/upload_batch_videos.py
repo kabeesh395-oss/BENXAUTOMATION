@@ -25,52 +25,39 @@ def main() -> None:
     ledger = UploadLedger("output/upload_ledger.sqlite")
     pub = YouTubePublisher(cfg, oauth_manager=mgr, ledger=ledger)
 
-    videos = [
-        # 5 Shorts
-        {
-            "path": Path("output/animated_shorts/anim_short_01/anim_short_01.mp4"),
-            "title": "BENX Animated Stick Adventure #1 #Shorts",
-            "desc": "BENX animated character story #1. Uploaded privately for review.",
+    from benxautomation.animation.script_generator import AnimationScriptGenerator
+
+    topic_map = {t["id"]: t for t in AnimationScriptGenerator.TOPIC_DEFINITIONS}
+
+    videos = []
+    # 5 High-Retention Animated Shorts
+    for i in range(1, 6):
+        sid = f"anim_short_{i:02d}"
+        tdef = topic_map.get(sid, {})
+        vtitle = f"{tdef.get('title', 'Cyber Breakthrough')} | BENX #Shorts"
+        vdesc = f"{tdef.get('hook', '')}\n\nFollow BENX for daily breakthroughs in future tech, quantum computing, and AI systems!\n\n#Shorts #Technology #Innovation #BENX"
+        videos.append({
+            "path": Path(f"output/animated_shorts/{sid}/{sid}.mp4"),
+            "title": vtitle,
+            "desc": vdesc,
             "is_short": True,
-        },
-        {
-            "path": Path("output/animated_shorts/anim_short_02/anim_short_02.mp4"),
-            "title": "BENX Animated Stick Adventure #2 #Shorts",
-            "desc": "BENX animated character story #2. Uploaded privately for review.",
-            "is_short": True,
-        },
-        {
-            "path": Path("output/animated_shorts/anim_short_03/anim_short_03.mp4"),
-            "title": "BENX Animated Stick Adventure #3 #Shorts",
-            "desc": "BENX animated character story #3. Uploaded privately for review.",
-            "is_short": True,
-        },
-        {
-            "path": Path("output/animated_shorts/anim_short_04/anim_short_04.mp4"),
-            "title": "BENX Animated Stick Adventure #4 #Shorts",
-            "desc": "BENX animated character story #4. Uploaded privately for review.",
-            "is_short": True,
-        },
-        {
-            "path": Path("output/animated_shorts/anim_short_05/anim_short_05.mp4"),
-            "title": "BENX Animated Stick Adventure #5 #Shorts",
-            "desc": "BENX animated character story #5. Uploaded privately for review.",
-            "is_short": True,
-        },
-        # 2 Longform
-        {
-            "path": Path("output/final_acceptance_run/video_longform.mp4"),
-            "title": "Surprising Facts About Ocean & Science | BENX Automation",
-            "desc": "Deep science exploration and ocean mysteries documentary. Uploaded privately for review.",
-            "is_short": False,
-        },
-        {
-            "path": Path("output/deep_ocean_acceptance/deep_sea_abyss_longform.mp4"),
-            "title": "Mysteries of the Deep Sea Abyss | BENX Deep Dive",
-            "desc": "Exploring the unknown abyss of the ocean. Uploaded privately for review.",
-            "is_short": False,
-        },
-    ]
+        })
+
+    # 2 Longform Documentaries
+    videos.append({
+        "path": Path("output/final_acceptance_run/video_longform.mp4"),
+        "title": "Surprising Facts About Ocean & Science | BENX Deep Dive",
+        "desc": "Deep science exploration and ocean mysteries documentary. Uploaded privately for review.\n\n#Science #Ocean #Documentary #BENX",
+        "tags": ["science", "ocean", "documentary", "benx"],
+        "is_short": False,
+    })
+    videos.append({
+        "path": Path("output/deep_ocean_acceptance/deep_sea_abyss_longform.mp4"),
+        "title": "Mysteries of the Deep Sea Abyss | BENX Deep Dive",
+        "desc": "Exploring the unknown abyss of the ocean. Uploaded privately for review.\n\n#Science #Ocean #Documentary #BENX",
+        "tags": ["science", "ocean", "deepsea", "documentary", "benx"],
+        "is_short": False,
+    })
 
     results = []
     for idx, item in enumerate(videos, start=1):
