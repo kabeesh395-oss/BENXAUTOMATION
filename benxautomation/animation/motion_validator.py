@@ -162,3 +162,7 @@ class MotionValidator:
             decode_passed=decode_pass,
             reasons=reasons,
         )
+
+    # Convenience alias for validate
+    validate = validate_animation
+

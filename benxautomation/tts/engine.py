@@ -33,10 +33,27 @@ class AudioResult:
 class TTSEngine:
     """Synthesizes text into high-quality speech audio."""
 
-    DEFAULT_VOICE = "en-US-AriaNeural"
+    DEFAULT_VOICE = "en-US-ChristopherNeural"
+    DEFAULT_RATE = "+15%"
 
-    def __init__(self, default_voice: str = DEFAULT_VOICE):
+    # Distinct voice profiles for BEN & Character Universe
+    CHARACTER_VOICES = {
+        "ben": {"voice": "en-US-ChristopherNeural", "rate": "+15%"},
+        "host": {"voice": "en-US-ChristopherNeural", "rate": "+15%"},
+        "max": {"voice": "en-US-GuyNeural", "rate": "+10%"},
+        "mr_cash": {"voice": "en-GB-RyanNeural", "rate": "+8%"},
+        "the_king": {"voice": "en-GB-ThomasNeural", "rate": "+5%"},
+        "dr_quantum": {"voice": "en-US-AndrewNeural", "rate": "+12%"},
+    }
+
+    def __init__(self, default_voice: str = DEFAULT_VOICE, default_rate: str = DEFAULT_RATE):
         self.default_voice = default_voice
+        self.default_rate = default_rate
+
+    def get_character_profile(self, character: str) -> dict[str, str]:
+        """Retrieve voice and rate for a character in the universe."""
+        norm = character.strip().lower().replace(" ", "_")
+        return self.CHARACTER_VOICES.get(norm, {"voice": self.default_voice, "rate": self.default_rate})
 
     async def synthesize_async(
         self,
@@ -44,11 +61,12 @@ class TTSEngine:
         output_path: Path,
         *,
         voice: Optional[str] = None,
-        rate: str = "+0%",
+        rate: Optional[str] = None,
         volume: str = "+0%",
     ) -> AudioResult:
         """Asynchronously synthesize text to MP3 using edge-tts."""
         voice = voice or self.default_voice
+        rate = rate if rate is not None else self.default_rate
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         if not text.strip():
@@ -100,7 +118,7 @@ class TTSEngine:
         output_path: Path,
         *,
         voice: Optional[str] = None,
-        rate: str = "+0%",
+        rate: Optional[str] = None,
         volume: str = "+0%",
     ) -> AudioResult:
         """Synchronous wrapper for synthesize_async."""
@@ -112,4 +130,19 @@ class TTSEngine:
                 rate=rate,
                 volume=volume,
             )
+        )
+
+    def synthesize_character(
+        self,
+        character: str,
+        text: str,
+        output_path: Path,
+    ) -> AudioResult:
+        """Convenience method to synthesize using a character's signature voice and rate."""
+        profile = self.get_character_profile(character)
+        return self.synthesize(
+            text=text,
+            output_path=output_path,
+            voice=profile["voice"],
+            rate=profile["rate"],
         )

@@ -319,11 +319,12 @@ class YouTubeOAuthManager:
         self,
         port: int = 8080,
         open_browser: bool = True,
-        timeout_seconds: int = 120,
+        timeout_seconds: int = 300,
         scopes: Optional[list[str]] = None,
     ) -> dict[str, Any]:
         """Run loopback redirect server, open browser for consent, and store tokens."""
-        redirect_uri = f"http://127.0.0.1:{port}/oauth2callback"
+        # Use http://localhost:{port}/ to strictly match registered Desktop OAuth URI 'http://localhost'
+        redirect_uri = f"http://localhost:{port}/"
         auth_url = self.get_authorization_url(redirect_uri=redirect_uri, scopes=scopes)
 
         server_address = ("127.0.0.1", port)
@@ -992,6 +993,12 @@ def _build_cli() -> argparse.ArgumentParser:
         default=DEFAULT_YOUTUBE_SCOPES,
         help="OAuth scopes to request (default: youtube.upload and youtube.readonly)",
     )
+    auth_p.add_argument(
+        "--code",
+        type=str,
+        default=None,
+        help="Authorization code or redirected URL (for manual authorization without loopback server)",
+    )
 
     # verify-channel
     chan_p = subparsers.add_parser("verify-channel", help="Verify authenticated channel info")
@@ -1135,10 +1142,17 @@ def main() -> None:
         )
 
         if args.command == "authorize":
-            print(f"Starting OAuth loopback flow on port {args.port}...")
             mgr.scopes = args.scopes
-            mgr.run_local_server_flow(port=args.port, scopes=args.scopes)
-            print("\n[SUCCESS] OAuth authorization complete!")
+            if args.code:
+                code = args.code.strip()
+                if "code=" in code:
+                    code = code.split("code=")[1].split("&")[0]
+                mgr.exchange_code_for_tokens(code, redirect_uri=f"http://localhost:{args.port}/")
+                print("\n[SUCCESS] OAuth authorization complete via code exchange!")
+            else:
+                print(f"Starting OAuth loopback flow on port {args.port}...")
+                mgr.run_local_server_flow(port=args.port, scopes=args.scopes)
+                print("\n[SUCCESS] OAuth authorization complete!")
             print(f"Tokens stored safely at: {mgr.token_path}")
             chan = mgr.verify_channel()
             print(f"Authenticated Channel Name: {chan.title}")

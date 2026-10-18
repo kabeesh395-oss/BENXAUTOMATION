@@ -51,4 +51,51 @@ __all__ = [
     "StoryScript",
     "MascotStoryResult",
     "LocalStoryScriptCatalog",
+    "ComedyScene",
+    "StickmanAnimationEngine",
+    "StickmanRig",
+    "StickmanPose",
+    "LimbAngles",
+    "StickmanStoryPipeline",
+    "StickmanStoryScript",
+    "StickmanStoryResult",
+    "FunnyStickmanScriptCatalog",
+    "ComedyIdea",
+    "StickmanIdeaGenerator",
+    "StickmanStoryboardGenerator",
+    "AutomatedStickmanChannel",
+    "CharacterProfile",
+    "DynamicCharacterFactory",
 ]
+from benxautomation.animation.stickman_engine import (
+    ComedyScene,
+    LimbAngles,
+    StickmanAnimationEngine,
+    StickmanPose,
+    StickmanRig,
+)
+from benxautomation.animation.stickman_story import (
+    FunnyStickmanScriptCatalog,
+    StickmanStoryPipeline,
+    StickmanStoryResult,
+    StickmanStoryScript,
+)
+from benxautomation.animation.stickman_ideas import (
+    ComedyIdea,
+    StickmanIdeaGenerator,
+)
+from benxautomation.animation.stickman_storyboard import (
+    StickmanStoryboardGenerator,
+)
+from benxautomation.animation.character_universe import (
+    CharacterProfile,
+    DynamicCharacterFactory,
+)
+
+
+def __getattr__(name: str):
+    if name == "AutomatedStickmanChannel":
+        from benxautomation.animation.automated_channel import AutomatedStickmanChannel
+        return AutomatedStickmanChannel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+

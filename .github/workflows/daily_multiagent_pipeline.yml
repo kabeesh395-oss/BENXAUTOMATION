@@ -1,0 +1,107 @@
+name: Daily Multi-Agent Autonomous Video Automation
+
+on:
+  schedule:
+    # Runs daily at 03:30 AM UTC = 09:00 AM IST
+    - cron: '30 3 * * *'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Video Format (longform = 16:9 + 2 auto-repurposed Shorts, shorts = 9:16 Short)'
+        required: true
+        type: choice
+        options:
+          - 'longform'
+          - 'shorts'
+        default: 'longform'
+      category:
+        description: 'Universe Category (tech, logic, science, finance, history)'
+        required: false
+        type: choice
+        options:
+          - 'tech'
+          - 'logic'
+          - 'science'
+          - 'finance'
+          - 'history'
+        default: 'tech'
+      publish:
+        description: 'Upload directly to YouTube'
+        required: true
+        type: boolean
+        default: true
+      privacy:
+        description: 'YouTube Privacy Status'
+        required: true
+        type: choice
+        options:
+          - 'unlisted'
+          - 'private'
+          - 'public'
+        default: 'unlisted'
+
+jobs:
+  daily-autonomous-production:
+    name: Autonomous Multi-Agent Generation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install FFmpeg & Fonts
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-freefont-ttf
+
+      - name: Install Project Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Hydrate OAuth Secrets
+        env:
+          YOUTUBE_CLIENT_SECRET_JSON: ${{ secrets.YOUTUBE_CLIENT_SECRET_JSON }}
+          YOUTUBE_TOKENS_JSON: ${{ secrets.YOUTUBE_TOKENS_JSON }}
+        run: |
+          python -c "from benxautomation.cloud_runner import hydrate_oauth_secrets; ready, msgs = hydrate_oauth_secrets(); print('OAuth Ready:', ready, msgs)"
+
+      - name: Run Daily Autonomous Multi-Agent Pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          MODE="${{ github.event.inputs.mode || 'longform' }}"
+          CAT="${{ github.event.inputs.category || '' }}"
+          PRIVACY="${{ github.event.inputs.privacy || 'unlisted' }}"
+          
+          CMD="python scripts/daily_autonomous_scheduler.py --mode $MODE --privacy $PRIVACY"
+          if [ -n "$CAT" ]; then
+            CMD="$CMD --category $CAT"
+          fi
+          if [ "${{ github.event.inputs.publish }}" != "false" ]; then
+            CMD="$CMD --publish"
+          fi
+
+          echo "Executing: $CMD"
+          eval $CMD
+
+      - name: Upload Production Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daily-autonomous-artifacts-${{ github.run_id }}
+          path: |
+            output/autonomous_runs/
+            output/daily_scheduler.log
+            output/daily_scheduler_history.json
+          retention-days: 14

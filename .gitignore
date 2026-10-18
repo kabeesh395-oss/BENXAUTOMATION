@@ -51,3 +51,4 @@ htmlcov/
 output/
 .backups/
 *.sqlite
+scratch/
