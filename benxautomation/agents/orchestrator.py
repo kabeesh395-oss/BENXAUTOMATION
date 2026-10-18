@@ -201,8 +201,12 @@ class MasterOrchestratorAgent:
                     short_vpath = r_short.get("video_path")
                     if short_vpath and Path(short_vpath).is_file():
                         try:
-                            s_title = r_short.get("title", f"{topic.title} #Shorts")
+                            raw_t = r_short.get("title", f"{topic.title}")
+                            raw_t = raw_t.strip().replace("<", "").replace(">", "")
+                            if len(raw_t) > 75:
+                                raw_t = raw_t[:72] + "..."
                             s_char = r_short.get("character", "ben")
+                            s_title = f"{raw_t} #{s_char.capitalize()} #Shorts"
                             s_desc = f"{s_title}\n\nWatch the full documentary on our channel!\n\n#Shorts #{s_char} #animation"
                             s_pub = publisher.upload(
                                 video_path=Path(short_vpath),

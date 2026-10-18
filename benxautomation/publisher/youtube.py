@@ -636,7 +636,14 @@ class YouTubePublisher:
                 f"Public or unlisted publishing is prohibited."
             )
 
-        # Guard 5: Validate video file existence and non-zero size
+        # Guard 5: Validate and sanitize title (YouTube enforces 100 char limit and no < >)
+        title = title.strip().replace("<", "").replace(">", "")
+        if not title:
+            title = f"Animated Story #{video_path.stem}"
+        if len(title) > 95:
+            title = title[:92] + "..."
+
+        # Guard 6: Validate video file existence and non-zero size
         if not video_path.is_file() or video_path.stat().st_size == 0:
             raise PublishingDisabledError(f"Video file is invalid or empty: {video_path}")
 
