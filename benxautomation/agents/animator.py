@@ -285,8 +285,8 @@ class CartoonAnimatorAgent:
                     lines_to_draw.append(cur_line)
 
             y_text = 330
-            for l in lines_to_draw[:5]:
-                stage_draw.text((right_x0 + 45, y_text), f"▶  {l}", fill=(241, 245, 249), font=font_sub)
+            for line in lines_to_draw[:5]:
+                stage_draw.text((right_x0 + 45, y_text), f"▶  {line}", fill=(241, 245, 249), font=font_sub)
                 y_text += 48
 
             # Action Callout Banner based on SFX
