@@ -38,8 +38,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from benxautomation.agents.orchestrator import MasterOrchestratorAgent, PipelineRunResult
-from benxautomation.config import PublishingConfig
+from benxautomation.agents.orchestrator import MasterOrchestratorAgent, PipelineRunResult  # noqa: E402
+from benxautomation.config import PublishingConfig  # noqa: E402
 
 # Set up dedicated file and console logger
 LOG_FILE = REPO_ROOT / "output" / "daily_scheduler.log"
