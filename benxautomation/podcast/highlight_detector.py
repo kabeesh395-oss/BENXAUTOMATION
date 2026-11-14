@@ -33,7 +33,8 @@ class HighlightDetector:
         max_clip_duration: float = 60.0,
     ) -> None:
         self.model = model
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        # An explicit empty string disables external Gemini calls (useful for deterministic tests).
+        self.api_key = api_key if api_key is not None else os.environ.get("GEMINI_API_KEY")
         self.min_clip_duration = min_clip_duration
         self.max_clip_duration = max_clip_duration
 
