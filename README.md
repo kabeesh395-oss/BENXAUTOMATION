@@ -23,12 +23,13 @@ BENXAUTOMATION V2 is an open-source, modular automation suite engineered for hig
 3. **Podcast & Livestream-to-Shorts Engine**:
    - Repurposes local recordings and licensed YouTube streams into vertical 1080x1920 Shorts.
    - Timed transcription, highlight detection, face-tracking/crop, burned captions, and per-clip metadata.
+   - Self-hosted AutoClip worker for local long-form files: Faster-Whisper transcription, Ollama-assisted highlight selection, validated timestamps, FFmpeg 9:16 rendering, and burned-in SRT subtitles. Uploads reuse the existing private-only publisher and rights-confirmation gates.
 4. **CodeRabbit AI Integration**:
    - Configured with official Schema v2 (`.coderabbit.yaml`) for automated GitHub Pull Request reviews.
    - Specialized review prompts for Python reliability, FFmpeg safety, secret scanning, and test coverage with noisy style nitpicks suppressed.
 5. **Quality & Maintainability Tooling**:
    - Fast Python linting via **Ruff** (`ruff check .`).
-   - GitHub Actions CI matrix for Python 3.11 and 3.12 with 257 unit & integration tests passing.
+   - GitHub Actions CI matrix for Python 3.11 and 3.12, running Ruff and the complete pytest suite.
    - Human-in-the-loop review gating before merging or publishing.
 
 ---
@@ -190,7 +191,7 @@ As documented in [`docs/SWEEP_AI_EVALUATION.md`](docs/SWEEP_AI_EVALUATION.md), S
 
 ## Testing & Quality Assurance
 
-Run the complete test suite (257 passing tests):
+Run the complete test suite:
 ```powershell
 pytest -q
 ```
