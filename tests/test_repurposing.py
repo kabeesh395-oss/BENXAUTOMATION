@@ -406,7 +406,8 @@ def test_10_clip_limits_on_long_source():
         )
     transcript = PodcastTranscript(segments=segments, language="en", source="synthetic")
 
-    detector = HighlightDetector(min_clip_duration=10.0, max_clip_duration=25.0)
+    # Keep this synthetic unit test offline and deterministic, even when GEMINI_API_KEY is set.
+    detector = HighlightDetector(api_key="", min_clip_duration=10.0, max_clip_duration=25.0)
     candidates = detector.detect_highlights(transcript, max_candidates=10)
 
     # Must generate up to 10 clips
