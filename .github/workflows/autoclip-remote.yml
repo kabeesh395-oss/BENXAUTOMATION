@@ -85,8 +85,8 @@ jobs:
       - name: Run remote AutoClip and publish Shorts
         working-directory: autoclip-app
         env:
-          YOUTUBE_CLIENT_SECRETS_JSON: ${{ secrets.AUTCLIP_YOUTUBE_CLIENT_SECRETS_JSON }}
-          YOUTUBE_TOKEN_JSON: ${{ secrets.AUTCLIP_YOUTUBE_TOKEN_JSON }}
+          YOUTUBE_CLIENT_SECRETS_JSON: ${{ secrets.AUTOCLIP_YOUTUBE_CLIENT_SECRETS_JSON }}
+          YOUTUBE_TOKEN_JSON: ${{ secrets.AUTOCLIP_YOUTUBE_TOKEN_JSON }}
           OLLAMA_URL: http://127.0.0.1:11434
           OLLAMA_MODEL: qwen2.5:3b
           WHISPER_DEVICE: cpu
