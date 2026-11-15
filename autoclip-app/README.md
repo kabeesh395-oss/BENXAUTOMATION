@@ -29,7 +29,7 @@ ollama serve
 uvicorn autoclip_app.app:app --host 127.0.0.1 --port 8765
 ```
 
-Open http://127.0.0.1:8765. To use the app from a phone on the same Wi-Fi, run Uvicorn with `--host 0.0.0.0` and open the computer's LAN IP on the phone. Do not expose this unauthenticated development server to the public internet.
+Run tests with `pip install -r requirements-dev.txt` then `python -m pytest -q tests`. Open http://127.0.0.1:8765. To use the app from a phone on the same Wi-Fi, run Uvicorn with `--host 0.0.0.0` and open the computer's LAN IP on the phone. Do not expose this unauthenticated development server to the public internet.
 
 ## Runtime notes
 - First Whisper/Ollama model use downloads model weights.
