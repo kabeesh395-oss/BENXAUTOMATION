@@ -129,6 +129,44 @@ def render(source: Path, rows: list[Segment], clip: Candidate, target: Path) -> 
     return target
 
 
+
+def generate_metadata(clip: Candidate) -> dict:
+    """Create YouTube SEO metadata locally; use a safe deterministic fallback."""
+    fallback_tags = list(dict.fromkeys(
+        word.lower() for word in re.findall(r"[A-Za-z0-9]{4,}", clip.title + " " + clip.transcript)
+    ))[:12]
+    fallback = {
+        "title": clip.title[:95] or "Best Moment",
+        "description": f"{clip.reason}\\n\\n{clip.transcript[:1200]}\\n\\n#Shorts",
+        "tags": fallback_tags or ["shorts", "highlights"],
+    }
+    endpoint = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+    model = os.getenv("OLLAMA_MODEL", "qwen2.5:3b")
+    prompt = f"""Create YouTube Shorts metadata for this clip. Return ONLY one JSON object:
+{{"title":"under 100 characters","description":"engaging factual description with #Shorts","tags":["up to 15 relevant tags"]}}
+Do not invent facts, names, claims or links. Keep the title accurate and concise.
+Clip title: {clip.title}
+Why it matters: {clip.reason}
+Transcript: {clip.transcript[:3500]}"""
+    try:
+        response = requests.post(
+            f"{endpoint}/api/generate",
+            json={"model": model, "prompt": prompt, "stream": False, "format": "json",
+                  "options": {"temperature": 0.2}},
+            timeout=180,
+        )
+        response.raise_for_status()
+        data = json.loads(response.json().get("response", "{}"))
+        title = str(data.get("title", fallback["title"])).strip()[:100]
+        description = str(data.get("description", fallback["description"])).strip()[:5000]
+        raw_tags = data.get("tags", fallback["tags"])
+        tags = [str(tag).strip()[:30] for tag in raw_tags if str(tag).strip()] if isinstance(raw_tags, list) else fallback["tags"]
+        return {"title": title or fallback["title"], "description": description or fallback["description"],
+                "tags": tags[:15]}
+    except Exception:
+        return fallback
+
+
 def process(source: Path, output: Path, language: str | None = None,
             whisper_model: str = "small", count: int = 5) -> list[dict]:
     output.mkdir(parents=True, exist_ok=True)
@@ -141,9 +179,13 @@ def process(source: Path, output: Path, language: str | None = None,
         slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", clip.title).strip("-").lower()[:40] or f"clip-{index}"
         target = output / f"{index:02d}-{slug}.mp4"
         render(source, rows, clip, target)
+        metadata = generate_metadata(clip)
         result.append({"id": index, "title": clip.title, "reason": clip.reason,
             "score": clip.score, "start": clip.start, "end": clip.end,
             "duration": round(clip.end-clip.start, 2),
+            "youtube_title": metadata["title"],
+            "youtube_description": metadata["description"],
+            "youtube_tags": metadata["tags"],
             "video_url": f"/outputs/{output.name}/{target.name}",
             "subtitle_url": f"/outputs/{output.name}/{target.stem}.srt"})
     (output / "clips.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
