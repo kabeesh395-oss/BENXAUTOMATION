@@ -5,6 +5,7 @@ import sqlite3
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -35,11 +36,13 @@ lock = threading.Lock()
 _scheduler_started = False
 
 
+@contextmanager
 def _db():
     DATA.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(SCHEDULE_DB, timeout=30)
     connection.row_factory = sqlite3.Row
-    connection.execute("""
+    try:
+        connection.execute("""
         CREATE TABLE IF NOT EXISTS scheduled_sources (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT NOT NULL,
@@ -53,8 +56,14 @@ def _db():
             created_at TEXT NOT NULL
         )
     """)
-    connection.commit()
-    return connection
+        connection.commit()
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def _now_ist() -> datetime:
@@ -279,7 +288,8 @@ def _scheduled_worker():
 @app.on_event("startup")
 def start_scheduler():
     global _scheduler_started
-    _db().close()
+    with _db():
+        pass
     if not _scheduler_started:
         threading.Thread(target=_scheduled_worker, name="autoclip-scheduler", daemon=True).start()
         _scheduler_started = True
