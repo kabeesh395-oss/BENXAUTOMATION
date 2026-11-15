@@ -178,7 +178,7 @@ async def upload_video(background: BackgroundTasks, file: UploadFile = File(...)
 def create_url_job(background: BackgroundTasks, url: str = Form(...),
                    mode: str = Form("vod"), language: str = Form(""),
                    model: str = Form("small"), count: int = Form(5),
-                   publish_public: bool = Form(True)):
+                   publish_public: bool = Form(False)):
     if not url.startswith(("https://", "http://")):
         raise HTTPException(400, "Enter a valid http(s) video URL.")
     if mode not in {"vod", "live"}:
