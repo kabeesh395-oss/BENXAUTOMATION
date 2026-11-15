@@ -1,6 +1,8 @@
 name: AutoClip Remote Publisher
 
 on:
+  schedule:
+    - cron: "30 12 * * *"
   workflow_dispatch:
     inputs:
       video_url:
@@ -67,6 +69,19 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      - name: Start local Ollama model on the runner
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve > "$RUNNER_TEMP/ollama.log" 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+          ollama pull qwen2.5:3b
+
       - name: Run remote AutoClip and publish Shorts
         working-directory: autoclip-app
         env:
@@ -76,7 +91,7 @@ jobs:
           OLLAMA_MODEL: qwen2.5:3b
           WHISPER_DEVICE: cpu
           WHISPER_COMPUTE_TYPE: int8
-          VIDEO_URL: ${{ inputs.video_url }}
+          VIDEO_URL: ${{ inputs.video_url || vars.AUTOCLIP_DAILY_VIDEO_URL }}
           VIDEO_LANGUAGE: ${{ inputs.language }}
           WHISPER_MODEL: ${{ inputs.whisper_model }}
           CLIP_COUNT: ${{ inputs.clip_count }}
