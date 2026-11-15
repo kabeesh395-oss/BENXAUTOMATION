@@ -137,7 +137,7 @@ def generate_metadata(clip: Candidate) -> dict:
     ))[:12]
     fallback = {
         "title": clip.title[:95] or "Best Moment",
-        "description": f"{clip.reason}\\n\\n{clip.transcript[:1200]}\\n\\n#Shorts",
+        "description": f"{clip.reason}\n\n{clip.transcript[:1200]}\n\n#Shorts",
         "tags": fallback_tags or ["shorts", "highlights"],
     }
     endpoint = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
