@@ -31,3 +31,18 @@ def test_choose_highlights_rejects_empty_transcript():
         assert "empty" in str(exc).lower()
     else:
         raise AssertionError("Empty transcript must be rejected.")
+
+
+def test_generate_metadata_has_local_fallback(monkeypatch):
+    from autoclip_app.pipeline import Candidate, generate_metadata
+
+    def unavailable(*args, **kwargs):
+        raise RuntimeError("local Ollama unavailable")
+
+    monkeypatch.setattr("autoclip_app.pipeline.requests.post", unavailable)
+    clip = Candidate(0, 25, "Useful Python tip", "Explains a shortcut", 90,
+                     "A useful Python shortcut saves time.")
+    metadata = generate_metadata(clip)
+    assert metadata["title"] == "Useful Python tip"
+    assert "#Shorts" in metadata["description"]
+    assert isinstance(metadata["tags"], list)
