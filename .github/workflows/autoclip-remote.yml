@@ -92,9 +92,9 @@ jobs:
           WHISPER_DEVICE: cpu
           WHISPER_COMPUTE_TYPE: int8
           VIDEO_URL: ${{ inputs.video_url || vars.AUTOCLIP_DAILY_VIDEO_URL }}
-          VIDEO_LANGUAGE: ${{ inputs.language }}
-          WHISPER_MODEL: ${{ inputs.whisper_model }}
-          CLIP_COUNT: ${{ inputs.clip_count }}
+          VIDEO_LANGUAGE: ${{ inputs.language || '' }}
+          WHISPER_MODEL: ${{ inputs.whisper_model || 'small' }}
+          CLIP_COUNT: ${{ inputs.clip_count || '5' }}
         run: |
           python remote_worker.py \
             --url "$VIDEO_URL" \
