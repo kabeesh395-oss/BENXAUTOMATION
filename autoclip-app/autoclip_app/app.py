@@ -100,6 +100,8 @@ def _run_job(job_id: str, source: Path, language: str | None, model: str,
             jobs[job_id]["status"] = "transcribing"
             jobs[job_id]["message"] = "Transcribing locally with Faster-Whisper"
         clips = process(source, OUTPUTS / job_id, language, model, count)
+        with lock:
+            jobs[job_id]["clips"] = clips
         if publish_public:
             if not youtube_status()["connected"]:
                 raise RuntimeError("YouTube is not connected. Connect your channel before processing public uploads.")
@@ -116,6 +118,8 @@ def _run_job(job_id: str, source: Path, language: str | None, model: str,
                 )
                 clip.update(youtube_id=uploaded["video_id"], youtube_url=uploaded["url"],
                             upload_status="public")
+                with lock:
+                    jobs[job_id]["clips"] = clips
         with lock:
             jobs[job_id].update(status="completed",
                 message=("All clips processed and published publicly." if publish_public else "Clips ready"),
