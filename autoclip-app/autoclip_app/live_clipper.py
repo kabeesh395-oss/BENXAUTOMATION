@@ -172,7 +172,12 @@ class LiveSession:
                 duration = _make_window(selected, window)
                 with self.lock:
                     self.message = "Analyzing recent live audio with local Faster-Whisper and Ollama"
-                rows = transcribe(window, self.model, self.language)
+                try:
+                    rows = transcribe(window, self.model, self.language)
+                except RuntimeError as exc:
+                    if "No speech was detected" in str(exc):
+                        continue
+                    raise
                 try:
                     candidates = choose_highlights(rows, count=self.clip_count,
                                                    min_seconds=20, max_seconds=58)
@@ -209,7 +214,7 @@ class LiveSession:
                     }
                     with self.lock:
                         self.clips.append(clip)
-                        self._last_clip_end = candidate.end
+                        self._last_clip_end = global_end
                         self.message = f"Live clip {index} ready while stream is still running"
                     (self.output_dir / "clips.json").write_text(
                         json.dumps(self.clips, ensure_ascii=False, indent=2), encoding="utf-8"
