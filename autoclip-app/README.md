@@ -11,7 +11,9 @@ A separate, self-hosted app for turning videos and VODs into vertical Shorts. Tr
 - Connect a YouTube channel with OAuth and upload up to five clips with public visibility.
 - Daily queue: add one source URL for a selected date/time; the local scheduler downloads, processes and publishes up to five public Shorts.
 - SQLite-backed schedule queue survives app restarts. The computer, Ollama and AutoClip server must be running at the scheduled time.
-- Livestream URL capture records until the stream ends; it is not instant live clipping.
+- Live clipping for public Twitch and YouTube Live URLs: Streamlink captures the stream into short rolling segments; recent windows are transcribed with Faster-Whisper and ranked with local Ollama; FFmpeg renders clips while the stream is still running.
+- Live dashboard controls to start/stop one active live session and poll for newly generated clips.
+- Existing recorded-video/VOD processing remains available separately. The legacy URL mode `live` still records until stream end; use the dedicated Live clipping panel for in-progress clipping.
 
 ## Windows setup
 
@@ -22,7 +24,7 @@ Run from this folder:
     python -m pip install --upgrade pip
     pip install -r requirements-dev.txt
 
-Install FFmpeg and add it to PATH. Install Ollama and pull the local model:
+Install FFmpeg and add it to PATH. Streamlink is installed from requirements. Install Ollama and pull the local model:
 
     ollama pull qwen2.5:3b
     ollama serve
@@ -51,7 +53,10 @@ After connecting, add one source link in Daily publisher, choose the date/time (
 - Scheduled jobs run on this computer. If Windows sleeps, the app is closed, the network is offline, or Ollama is stopped, the schedule cannot run at its planned time. Keep the PC awake and the app running.
 - If the app is restarted, queued schedule entries persist. A job interrupted while already running may need to be re-queued manually.
 - Processing multi-hour videos on CPU may take longer than the source duration. The five-clip count is a maximum; fewer valid highlights may be produced.
-- Livestream mode waits for the stream to finish before transcription and clipping.
+- The dedicated Live clipping panel supports public Twitch and YouTube Live URLs only. It uses Streamlink + FFmpeg for rolling capture, then analyzes roughly 80-second rolling windows every 15 seconds. Clips include the captured pre-roll within the selected window and become available before the stream ends.
+- Live clipping is local and CPU-intensive. Keep the computer awake, the network connected, AutoClip, FFmpeg, Ollama and Streamlink running. The first clip appears only after enough stream segments have accumulated and local AI analysis/rendering finishes.
+- Only one live clipping session can run at a time. Stop it from the dashboard. A stream ending unexpectedly or a platform changing its playback format can stop capture; verify the session status in the UI.
+- This implementation does not bypass private streams, DRM, subscriptions or other access controls. Only clip streams you own or have permission to repurpose.
 - The local development server has no user authentication. Bind to localhost; do not expose it directly to the public internet.
 
 ## Tests
@@ -62,6 +67,7 @@ After connecting, add one source link in Daily publisher, choose the date/time (
 
 - Faster-Whisper: https://github.com/SYSTRAN/faster-whisper
 - yt-dlp: https://github.com/yt-dlp/yt-dlp
+- Streamlink: https://github.com/streamlink/streamlink
 - FFmpeg: https://ffmpeg.org/
 - Ollama: https://github.com/ollama/ollama
 - YouTube Data API: https://developers.google.com/youtube/data/guides/uploading_a_video
