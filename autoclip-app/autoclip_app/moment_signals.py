@@ -7,7 +7,6 @@ No external chat API, account token, or paid service is contacted here.
 from __future__ import annotations
 
 import json
-import math
 import re
 import subprocess
 from pathlib import Path
