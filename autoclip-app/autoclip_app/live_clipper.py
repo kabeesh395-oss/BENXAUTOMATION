@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .pipeline import choose_highlights, generate_metadata, render, transcribe
+from .moment_signals import chat_activity_score, combine_moment_score, load_chat_events, measure_loudness
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
@@ -185,8 +186,10 @@ class LiveSession:
                     if "No valid highlights" in str(exc):
                         continue
                     raise
+                chat_events = load_chat_events(self.directory / "chat.jsonl")
                 for candidate in candidates:
                     # Require a newly observed moment and retain a short cooldown.
+                    global_start = window_start_seconds + candidate.start
                     global_end = window_start_seconds + candidate.end
                     if candidate.end > duration + 0.5 or global_end < self._last_clip_end - 3:
                         continue
@@ -198,11 +201,19 @@ class LiveSession:
                     target = self.output_dir / f"{index:02d}-{slug}.mp4"
                     with self.lock:
                         self.message = f"Rendering live highlight {index}"
+                    loudness = measure_loudness(window, candidate.start, candidate.end)
+                    chat_score = chat_activity_score(chat_events, global_start, global_end)
+                    combined_score = combine_moment_score(candidate.score, loudness, chat_score)
                     render(window, rows, candidate, target)
                     metadata = generate_metadata(candidate)
                     clip = {
                         "id": index, "title": candidate.title, "reason": candidate.reason,
-                        "score": candidate.score, "start": candidate.start, "end": candidate.end,
+                        "score": combined_score,
+                        "signals": {
+                            "transcript_score": candidate.score,
+                            "audio_loudness": loudness,
+                            "chat_activity_score": chat_score,
+                        }, "start": candidate.start, "end": candidate.end,
                         "duration": round(candidate.end - candidate.start, 2),
                         "global_end": global_end,
                         "youtube_title": metadata["title"],
