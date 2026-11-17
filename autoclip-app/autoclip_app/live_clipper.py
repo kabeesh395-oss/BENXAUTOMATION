@@ -7,7 +7,6 @@ Only public streams are supported; this module does not bypass access controls.
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
