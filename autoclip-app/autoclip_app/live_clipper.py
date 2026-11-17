@@ -125,7 +125,7 @@ class LiveSession:
         self.segment_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._last_clip_end = 0.0
-        self._last_analyzed_count = 0
+        self._last_analyzed_segment = -1
 
     def snapshot(self) -> dict:
         with self.lock:
@@ -158,10 +158,14 @@ class LiveSession:
                 self.message = f"Capturing {self.platform} live stream; waiting for rolling buffer"
             while not self.stop_event.wait(ANALYZE_EVERY_SECONDS):
                 segments = sorted(self.segment_dir.glob("*.ts"))
-                if len(segments) < 8 or len(segments) == self._last_analyzed_count:
+                if len(segments) < 8:
                     continue
-                self._last_analyzed_count = len(segments)
+                latest_index = int(segments[-1].stem)
+                if latest_index == self._last_analyzed_segment:
+                    continue
+                self._last_analyzed_segment = latest_index
                 selected = segments[-WINDOW_SEGMENTS:]
+                window_start_seconds = int(selected[0].stem) * SEGMENT_SECONDS
                 window = self.directory / "rolling-window.mp4"
                 duration = _make_window(selected, window)
                 with self.lock:
@@ -176,9 +180,10 @@ class LiveSession:
                     raise
                 for candidate in candidates:
                     # Require a newly observed moment and retain a short cooldown.
-                    if candidate.end > duration + 0.5 or candidate.start < self._last_clip_end - 3:
+                    global_end = window_start_seconds + candidate.end
+                    if candidate.end > duration + 0.5 or global_end < self._last_clip_end - 3:
                         continue
-                    if any(abs(float(c.get("window_end", 0)) - candidate.end) < 12
+                    if any(abs(float(c.get("global_end", 0)) - global_end) < 12
                            for c in self.clips):
                         continue
                     index = len(self.clips) + 1
@@ -192,7 +197,7 @@ class LiveSession:
                         "id": index, "title": candidate.title, "reason": candidate.reason,
                         "score": candidate.score, "start": candidate.start, "end": candidate.end,
                         "duration": round(candidate.end - candidate.start, 2),
-                        "window_end": candidate.end,
+                        "global_end": global_end,
                         "youtube_title": metadata["title"],
                         "youtube_description": metadata["description"],
                         "youtube_tags": metadata["tags"],
