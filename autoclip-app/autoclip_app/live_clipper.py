@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 """Local, rolling live-stream clipper for public Twitch and YouTube Live streams.
 
 Requires Streamlink, FFmpeg/ffprobe, Faster-Whisper and a running local Ollama.
 Only public streams are supported; this module does not bypass access controls.
 """
+
+from __future__ import annotations
 
 import json
 import os
