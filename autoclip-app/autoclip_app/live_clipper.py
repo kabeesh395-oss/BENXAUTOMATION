@@ -17,7 +17,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .pipeline import choose_highlights, generate_metadata, render, transcribe
-from .moment_signals import chat_activity_score, combine_moment_score, load_chat_events, measure_loudness
+from .moment_signals import (
+    chat_activity_score,
+    combine_moment_score,
+    load_chat_events,
+    measure_loudness,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
