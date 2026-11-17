@@ -155,8 +155,9 @@ class LiveSession:
         capture_thread.start()
         try:
             with self.lock:
-                self.status = "capturing"
-                self.message = f"Capturing {self.platform} live stream; waiting for rolling buffer"
+                if self.status != "failed":
+                    self.status = "capturing"
+                    self.message = f"Capturing {self.platform} live stream; waiting for rolling buffer"
             while not self.stop_event.wait(ANALYZE_EVERY_SECONDS):
                 segments = sorted(self.segment_dir.glob("*.ts"))
                 if len(segments) < 8:
@@ -247,3 +248,10 @@ class LiveSession:
                     self.status = "failed"
                     self.message = "Live capture failed"
             self.stop_event.set()
+        else:
+            if not self.stop_event.is_set():
+                with self.lock:
+                    if self.status != "failed":
+                        self.status = "stopping"
+                        self.message = "The livestream ended; finalizing captured clips"
+                self.stop_event.set()
