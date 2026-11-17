@@ -69,6 +69,8 @@ def _run_capture(url: str, segment_dir: Path, stop: threading.Event) -> None:
                 raise RuntimeError("Streamlink stopped. Confirm the stream is live and publicly accessible.")
             if target.poll() is not None:
                 error = (target.stderr.read() if target.stderr else b"").decode("utf-8", "replace")
+                if source.poll() is not None and source.returncode == 0 and target.returncode == 0:
+                    return
                 raise RuntimeError("FFmpeg capture stopped: " + error[-1200:])
     finally:
         for process in (target, source):
