@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .pipeline import process
+from .live_clipper import LiveSession, identify_platform
 from .youtube import connect_youtube, upload_public_video, youtube_status
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +33,7 @@ app = FastAPI(title="AutoClip AI", version="0.2.0")
 app.mount("/outputs", StaticFiles(directory=OUTPUTS), name="outputs")
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 jobs: dict[str, dict[str, Any]] = {}
+live_sessions: dict[str, LiveSession] = {}
 lock = threading.Lock()
 _scheduler_started = False
 
@@ -306,3 +308,50 @@ def get_job(job_id: str):
         if not job:
             raise HTTPException(404, "Job not found. Jobs are stored in memory until the app restarts.")
         return dict(job)
+
+
+@app.post("/api/live/start")
+def start_live_clipping(url: str = Form(...), language: str = Form(""),
+                        model: str = Form("small"), count: int = Form(5)):
+    """Start rolling live clipping for a public Twitch or YouTube Live stream."""
+    try:
+        platform = identify_platform(url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    with lock:
+        active = [s for s in live_sessions.values()
+                  if s.snapshot()["status"] in {"starting", "capturing", "stopping"}]
+        if active:
+            raise HTTPException(409, "A live clipping session is already running. Stop it before starting another.")
+        session = LiveSession(url, language or None, model, count)
+        live_sessions[session.id] = session
+    session.start()
+    result = session.snapshot()
+    result["message"] = f"{platform.title()} live clipping session started. Clips are generated while the stream continues."
+    return result
+
+
+@app.get("/api/live")
+def list_live_sessions():
+    with lock:
+        sessions = list(live_sessions.values())
+    return {"items": [session.snapshot() for session in sessions[-20:]]}
+
+
+@app.get("/api/live/{session_id}")
+def get_live_session(session_id: str):
+    with lock:
+        session = live_sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Live session not found.")
+    return session.snapshot()
+
+
+@app.post("/api/live/{session_id}/stop")
+def stop_live_session(session_id: str):
+    with lock:
+        session = live_sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Live session not found.")
+    session.stop()
+    return session.snapshot()
