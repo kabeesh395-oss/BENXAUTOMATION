@@ -13,6 +13,8 @@ A separate, self-hosted app for turning videos and VODs into vertical Shorts. Tr
 - SQLite-backed schedule queue survives app restarts. The computer, Ollama and AutoClip server must be running at the scheduled time.
 - Live clipping for public Twitch and YouTube Live URLs: Streamlink captures the stream into short rolling segments; recent windows are transcribed with Faster-Whisper and ranked with local Ollama; FFmpeg renders clips while the stream is still running.
 - Live dashboard controls to start/stop one active live session and poll for newly generated clips.
+- Live moment ranking blends local transcript relevance with FFmpeg-measured audio loudness. Optional timestamped chat events can be supplied as JSONL at `autoclip-app/data/live/<session-id>/chat.jsonl` (one JSON object per line with a numeric `time` field in seconds from stream start). This is an import/sidecar hook, not an automatic Twitch chat or YouTube live-chat collector; chat scoring is omitted when no sidecar is present.
+- The dashboard is responsive on mobile browsers, but capture, Whisper inference, Ollama and FFmpeg still run on the host computer. It is not a phone-only worker.
 - Existing recorded-video/VOD processing remains available separately. The legacy URL mode `live` still records until stream end; use the dedicated Live clipping panel for in-progress clipping.
 
 ## Windows setup
@@ -53,9 +55,10 @@ After connecting, add one source link in Daily publisher, choose the date/time (
 - Scheduled jobs run on this computer. If Windows sleeps, the app is closed, the network is offline, or Ollama is stopped, the schedule cannot run at its planned time. Keep the PC awake and the app running.
 - If the app is restarted, queued schedule entries persist. A job interrupted while already running may need to be re-queued manually.
 - Processing multi-hour videos on CPU may take longer than the source duration. The five-clip count is a maximum; fewer valid highlights may be produced.
-- The dedicated Live clipping panel supports public Twitch and YouTube Live URLs only. It uses Streamlink + FFmpeg for rolling capture, then analyzes roughly 80-second rolling windows every 15 seconds. Clips include the captured pre-roll within the selected window and become available before the stream ends.
+- The dedicated Live clipping panel supports public Twitch and YouTube Live URLs only. It uses Streamlink + FFmpeg for rolling capture, then analyzes roughly 80-second rolling windows every 15 seconds. Clips include the captured pre-roll within the selected window and become available before the stream ends. Candidate scores now blend transcript relevance and measured audio loudness; optional imported chat activity can add another ranking signal.
 - Live clipping is local and CPU-intensive. Keep the computer awake, the network connected, AutoClip, FFmpeg, Ollama and Streamlink running. The first clip appears only after enough stream segments have accumulated and local AI analysis/rendering finishes.
 - Only one live clipping session can run at a time. Stop it from the dashboard. A stream ending unexpectedly or a platform changing its playback format can stop capture; verify the session status in the UI.
+- Chat activity currently requires a timestamped JSONL sidecar supplied by the operator; automatic Twitch/YouTube chat ingestion and platform 'most replayed' data are not implemented. No automatic voice cloning or ElevenLabs integration is included; the original stream audio is preserved.
 - This implementation does not bypass private streams, DRM, subscriptions or other access controls. Only clip streams you own or have permission to repurpose.
 - The local development server has no user authentication. Bind to localhost; do not expose it directly to the public internet.
 
