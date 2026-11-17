@@ -219,8 +219,9 @@ class LiveSession:
                     except OSError:
                         pass
             with self.lock:
-                self.status = "completed"
-                self.message = "Live capture stopped; generated clips are preserved"
+                if self.status != "failed":
+                    self.status = "completed"
+                    self.message = "Live capture stopped; generated clips are preserved"
         except Exception as exc:
             with self.lock:
                 self.status = "failed"
