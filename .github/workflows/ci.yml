@@ -24,7 +24,10 @@ jobs:
           cache: 'pip'
 
       - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core fonts-freefont-ttf
+        run: |
+          # Retry transient Ubuntu package-mirror/network errors on hosted runners.
+          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-freefont-ttf
 
       - name: Install dependencies
         run: |
