@@ -57,8 +57,9 @@ jobs:
 
       - name: Install System Dependencies (FFmpeg)
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-freefont-ttf
+          # Retry transient Ubuntu package-mirror/network errors on hosted runners.
+          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -qq
+          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-freefont-ttf
           ffmpeg -version
 
       - name: Install Python Dependencies
