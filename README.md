@@ -4,7 +4,6 @@
 
 [![CI — Tests](https://github.com/kabeesh395-oss/BENXAUTOMATION/actions/workflows/ci.yml/badge.svg)](https://github.com/kabeesh395-oss/BENXAUTOMATION/actions/workflows/ci.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
@@ -218,4 +217,4 @@ ruff check .
 
 ## License
 
-Original code and character designs are licensed under the **MIT License**. All mascot character assets are creator-owned by BENXAUTOMATION.
+The repository currently has no root `LICENSE` file. The previous MIT-license statement is therefore unverified. Add the project owner's approved license text before representing the repository as MIT-licensed or distributing it under that license.
